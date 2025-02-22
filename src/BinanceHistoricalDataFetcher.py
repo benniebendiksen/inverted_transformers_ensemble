@@ -3,7 +3,7 @@ import sys
 
 from src.Config import Config
 from unicorn_binance_rest_api import BinanceRestApiManager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 import numpy as np
 import time
@@ -196,9 +196,9 @@ class BinanceHistoricalDataFetcher:
 
         if end_datetime:
             # Must be valid the datetime string, e.g., "2019-09-08 17:45:00"
-            dt_str = end_datetime
             # Convert to a datetime object
-            dt_obj = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+            dt_obj = datetime.strptime(end_datetime, "%Y-%m-%d %H:%M:%S")
+            dt_obj = dt_obj.replace(tzinfo=timezone.utc)  # Explicitly set UTC
             # Convert to Unix timestamp (milliseconds)
             timestamp_ms = int(dt_obj.timestamp() * 1000)
             end_time = timestamp_ms
@@ -229,14 +229,14 @@ class BinanceHistoricalDataFetcher:
             start_time = end_time - (chunk_size * self.interval_ms[self.interval])
 
             if len(all_data) % 10 == 0:
-                self.save_data(pd.concat(all_data))
+                self.save_data_backwards(pd.concat(all_data))
 
         if not all_data:
             self.logger.error("No data collected!")
             return pd.DataFrame()
 
         final_df = pd.concat(all_data).sort_index()
-        self.save_data(final_df)
+        self.save_data_backwards(final_df)
 
         # Log collection statistics
         self.logger.info(f"Data collection completed:")
@@ -247,7 +247,93 @@ class BinanceHistoricalDataFetcher:
 
         return final_df
 
-    def save_data(self, df: pd.DataFrame) -> None:
+    def fetch_from_start_time_working_forwards(self, start_datetime=None) -> pd.DataFrame:
+        """
+        Fetch all available historical data from a given start time working forwards.
+        All timestamps are handled in UTC to ensure consistency with Binance's API.
+
+        Args:
+            start_datetime: Optional string in format "YYYY-MM-DD HH:MM:SS"
+                           Should be in UTC time
+        """
+        print(f"Starting forward historical data collection for {self.symbol}")
+
+        chunk_size = 1000
+        all_data = []
+        consecutive_empty_responses = 0
+        max_empty_responses = 3
+
+        if start_datetime:
+            # Convert start_datetime string to UTC timestamp
+            dt_obj = datetime.strptime(start_datetime, "%Y-%m-%d %H:%M:%S")
+            dt_obj = dt_obj.replace(tzinfo=timezone.utc)  # Explicitly set UTC
+            start_time = int(dt_obj.timestamp() * 1000)
+        else:
+            # Start from earliest available data in UTC
+            start_time = int(datetime(2017, 8, 17, tzinfo=timezone.utc).timestamp() * 1000)
+
+        # Get current time in UTC
+        current_time = int(datetime.now(timezone.utc).timestamp() * 1000)
+        original_start_time = start_time
+
+        # Ensure start_time isn't in the future
+        if start_time > current_time:
+            self.logger.error("Start time cannot be in the future")
+            return pd.DataFrame()
+
+        while start_time < current_time:
+            end_time = start_time + (chunk_size * self.interval_ms[self.interval])
+
+            # Adjust end_time if it would exceed current time
+            if end_time > current_time:
+                end_time = current_time
+
+            print(f"Fetching data from {datetime.fromtimestamp(start_time / 1000, tz=timezone.utc)} to "
+                  f"{datetime.fromtimestamp(end_time / 1000, tz=timezone.utc)} UTC")
+
+            chunk = self.fetch_klines(
+                start_time=start_time,
+                end_time=end_time,
+                limit=chunk_size
+            )
+
+            if chunk.empty:
+                consecutive_empty_responses += 1
+                if consecutive_empty_responses >= max_empty_responses:
+                    self.logger.info("Reached maximum consecutive empty responses, assuming no more data available")
+                    break
+            else:
+                consecutive_empty_responses = 0
+                all_data.append(chunk)
+
+            # Save periodically
+            if len(all_data) % 10 == 0:
+                self.save_data_forwards(pd.concat(all_data))
+
+            # If we've reached current_time, we're done
+            if end_time >= current_time:
+                break
+
+            # Set up next iteration
+            start_time = end_time
+
+        if not all_data:
+            self.logger.error("No data collected!")
+            return pd.DataFrame()
+
+        final_df = pd.concat(all_data).sort_index()
+        self.save_data_forwards(final_df)
+
+        # Log collection statistics
+        self.logger.info(f"Data collection completed:")
+        self.logger.info(f"Total records: {self.stats['total_records']}")
+        self.logger.info(f"Date range: {self.stats['earliest_timestamp']} to {self.stats['latest_timestamp']}")
+        self.logger.info(f"Total requests: {self.stats['total_requests']}")
+        self.logger.info(f"Empty responses: {self.stats['empty_responses']}")
+
+        return final_df
+
+    def save_data_backwards(self, df: pd.DataFrame) -> None:
         """Save the DataFrame to a CSV file while maintaining index consistency"""
         filename = self.data_dir / f"{self.symbol.lower()}_{self.interval}_historical.csv"
         df.sort_index(inplace=True)
@@ -256,7 +342,7 @@ class BinanceHistoricalDataFetcher:
         try:
             if os.path.exists(filename):
                 # Load existing CSV and ensure index is datetime
-                existing_df = pd.read_csv(filename, index_col=0, parse_dates=True)
+                existing_df = pd.read_csv(filename, index_col=0)
 
                 # Get oldest stored timestamp
                 last_timestamp = existing_df.index[0]
@@ -274,6 +360,38 @@ class BinanceHistoricalDataFetcher:
             # Save back to CSV (overwrite with new order)
             combined_df.to_csv(filename, mode="w", header=True, index=True)
             print(f"Prepended {len(df)} new records to {filename}")
+        except Exception as e:
+            print(f"Error during data saving: {str(e)}")
+            sys.exit(2)
+
+    def save_data_forwards(self, df: pd.DataFrame) -> None:
+        """Save the DataFrame to a CSV file while maintaining index consistency for forward fetching"""
+        filename = self.data_dir / f"{self.symbol.lower()}_{self.interval}_historical.csv"
+        df.sort_index(inplace=True)
+        self.counter += 1
+
+        try:
+            if os.path.exists(filename):
+                # Load existing CSV and ensure index is datetime
+                existing_df = pd.read_csv(filename, index_col=0)
+
+                # Get newest stored timestamp
+                newest_timestamp = existing_df.index[-1]
+                print(f"existing oldest ts: {existing_df.index[0]}")
+                print(f"existing newest ts: {newest_timestamp}")
+
+                print(f"new chunk oldest ts: {df.index[0]}")
+                print(f"new chunk newest ts: {df.index[-1]}")
+
+                # Only append data newer than our newest stored timestamp
+                df = df[df.index > newest_timestamp]
+                combined_df = pd.concat([existing_df, df])
+            else:
+                combined_df = df
+
+            # Save back to CSV (overwrite with new order)
+            combined_df.to_csv(filename, mode="w", header=True, index=True)
+            print(f"Appended {len(df)} new records to {filename}")
         except Exception as e:
             print(f"Error during data saving: {str(e)}")
             sys.exit(2)
