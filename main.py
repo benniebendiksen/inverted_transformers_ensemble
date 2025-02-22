@@ -4,7 +4,7 @@ if __name__ == "__main__":
     fetcher = BinanceHistoricalDataFetcher(
         symbol="BTCUSDT",
         interval="4h",
-        exchange="binance_us"
+        exchange="binance_futures"
     )
 
     # Fetch complete history

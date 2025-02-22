@@ -11,9 +11,8 @@ class Config(BaseClass):
 
     API_KEY = os.environ.get('API_KEY')
     API_SECRET = os.environ.get('API_SECRET')
-    SOCKS5_IP_PORT = "57.180.240.179:1080"
+    SOCKS5_IP_PORT = "13.231.151.193:1080"
     REMOTE_KEYS_PATH = "/Users/bendiksen/Desktop/trend-activated-trailing-stop-loss-bot/MY_AWS_KEYS.pem"
-    REMOTE_ADDRESS = "18.183.102.61"
     AGGTRADE_FILENAME = "df_aggTrade_returned.json"
     MARKETS = ["btc_usdt", "eth_usdt"]
     CANDLESTICK_TIME_INTERVAL = '1m'
