@@ -22,10 +22,11 @@ class BinanceHistoricalDataFetcher:
             self,
             symbol: str,
             interval: str,
-            data_dir: str = "historical_data",
+            exchange: str,
             max_requests_per_minute: int = 1200,
             request_weight: int = 1
     ):
+        print(f"Creating Fetcher Instance for Exchange: {exchange}")
         self.config = Config()
         self.have_loaded_index = False
         self.socks5_proxy = self.config.SOCKS5_IP_PORT
@@ -33,17 +34,26 @@ class BinanceHistoricalDataFetcher:
         self.stats = None
         self.symbol = symbol.upper()
         self.interval = interval
+        self.exchange = exchange
         self.counter = 0
-        self.client = BinanceRestApiManager(
-            api_key=self.config.API_KEY,
-            api_secret=self.config.API_SECRET,
-            exchange="binance.com-futures",
-            socks5_proxy_server=self.socks5_proxy,
-            socks5_proxy_user=None,
-            socks5_proxy_pass=None,
-            socks5_proxy_ssl_verification=True
-        )
-        self.data_dir = Path(data_dir)
+        if self.exchange == "binance_us":
+            self.client = BinanceRestApiManager(
+                api_key=self.config.API_KEY,
+                api_secret=self.config.API_SECRET,
+                exchange="binance.us"
+            )
+        else:
+            self.client = BinanceRestApiManager(
+                api_key=self.config.API_KEY,
+                api_secret=self.config.API_SECRET,
+                exchange="binance.com-futures",
+                socks5_proxy_server=self.socks5_proxy,
+                socks5_proxy_user=None,
+                socks5_proxy_pass=None,
+                socks5_proxy_ssl_verification=True
+            )
+        str_data_dir = exchange + "_" + "historical_data"
+        self.data_dir = Path(str_data_dir)
         self.data_dir.mkdir(exist_ok=True)
 
         self.max_requests_per_minute = max_requests_per_minute
@@ -115,18 +125,29 @@ class BinanceHistoricalDataFetcher:
     ) -> pd.DataFrame:
         """
         Fetch kline data for a specific time range with rate limiting.
+        start_time: int: timestamp
+        end_time: int: timestamp
         """
         self.check_rate_limit()
         self.stats['total_requests'] += 1
 
         try:
-            klines = self.client.futures_klines(
-                symbol=self.symbol,
-                interval=self.interval,
-                startTime=start_time,
-                endTime=end_time,
-                limit=limit
-            )
+            if self.exchange == "binance_us":
+                klines = self.client.get_historical_klines(
+                    symbol=self.symbol,
+                    interval=self.interval,
+                    start_str=start_time,
+                    end_str=end_time,
+                    limit=limit
+                )
+            else:
+                klines = self.client.futures_klines(
+                    symbol=self.symbol,
+                    interval=self.interval,
+                    startTime=start_time,
+                    endTime=end_time,
+                    limit=limit
+                )
 
             time.sleep(0.5)
 
@@ -162,28 +183,27 @@ class BinanceHistoricalDataFetcher:
             self.logger.error(f"Error fetching klines: {str(e)}")
             raise
 
-    def fetch_complete_history(self) -> pd.DataFrame:
+    def fetch_from_end_time_working_backwards(self, end_datetime=None) -> pd.DataFrame:
         """
         Fetch all available historical data for the symbol and interval.
         """
-        self.logger.info(f"Starting historical data collection for {self.symbol}")
+        print(f"Starting historical data collection for {self.symbol}")
 
         chunk_size = 1000
         all_data = []
         consecutive_empty_responses = 0
         max_empty_responses = 3  # Stop after 3 consecutive empty responses
 
-        # Define the datetime string
-        dt_str = "2019-09-08 17:45:00"
-
-        # Convert to a datetime object
-        dt_obj = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
-
-        # Convert to Unix timestamp (milliseconds)
-        timestamp_ms = int(dt_obj.timestamp() * 1000)
-
-        end_time = timestamp_ms
-        #end_time = int(time.time() * 1000)
+        if end_datetime:
+            # Must be valid the datetime string, e.g., "2019-09-08 17:45:00"
+            dt_str = end_datetime
+            # Convert to a datetime object
+            dt_obj = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+            # Convert to Unix timestamp (milliseconds)
+            timestamp_ms = int(dt_obj.timestamp() * 1000)
+            end_time = timestamp_ms
+        else:
+            end_time = int(time.time() * 1000)
         start_time = end_time - (chunk_size * self.interval_ms[self.interval])
 
         while True:

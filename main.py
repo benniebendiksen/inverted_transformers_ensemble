@@ -1,16 +1,15 @@
 from src.BinanceHistoricalDataFetcher import BinanceHistoricalDataFetcher
 
 if __name__ == "__main__":
-    # Initialize fetcher for BTCUSDT with 1-minute intervals
     fetcher = BinanceHistoricalDataFetcher(
         symbol="BTCUSDT",
-        interval="15m",
-        data_dir="historical_data"
+        interval="4h",
+        exchange="binance_us"
     )
 
     # Fetch complete history
     try:
-        df = fetcher.fetch_complete_history()
+        df = fetcher.fetch_from_end_time_working_backwards()
         if not df.empty:
             print(f"\nData Summary:")
             print(f"Total records: {len(df)}")

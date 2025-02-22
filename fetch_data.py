@@ -17,7 +17,7 @@ def fetch_and_validate_data(symbol: str, interval: str, min_days: int = 365):
     fetcher = BinanceHistoricalDataFetcher(
         symbol=symbol,
         interval=interval,
-        data_dir="historical_data"
+        data_dir="binance_futures_historical_data"
     )
 
     # First try to load existing data
@@ -36,7 +36,7 @@ def fetch_and_validate_data(symbol: str, interval: str, min_days: int = 365):
 
     # Fetch new data
     try:
-        df = fetcher.fetch_complete_history()
+        df = fetcher.fetch_from_end_time_working_backwards()
 
         if df.empty:
             raise ValueError(f"No data retrieved for {symbol}")
