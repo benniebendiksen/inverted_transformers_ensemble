@@ -1,42 +1,14 @@
 from src.BinanceHistoricalDataFetcher import BinanceHistoricalDataFetcher
-from datetime import datetime
-import time
+from src.MACDProcessor import MACDProcessor
+from src.Config import Config
+from pathlib import Path
 
 
-def test_detailed_timestamp_fetch():
-    base_dt = "2025-02-16 22:00:00"
-    dt_obj = datetime.strptime(base_dt, "%Y-%m-%d %H:%M:%S")
-    base_ts = int(dt_obj.timestamp() * 1000)
-
-    # Try several smaller windows
-    for hours_offset in range(6):
-        start_ts = base_ts + (3600000 * hours_offset)  # Add hours one by one
-        end_ts = start_ts + 3600000  # One hour window
-
-        print(f"\nTrying fetch for hour {hours_offset}:")
-        print(f"Start: {datetime.fromtimestamp(start_ts / 1000)}")
-        print(f"End: {datetime.fromtimestamp(end_ts / 1000)}")
-
-        chunk = fetcher.fetch_klines(
-            start_time=start_ts,
-            end_time=end_ts,
-            limit=1000
-        )
-
-        if not chunk.empty:
-            print(f"Got data! First record: {chunk.index[0]}")
-            print(f"Last record: {chunk.index[-1]}")
-            print(f"Number of records: {len(chunk)}")
-        else:
-            print("No data returned for this window")
-
-        time.sleep(1)  # Respect rate limits
-
-if __name__ == "__main__":
+def get_historical_data(symbol, interval, exchange):
     fetcher = BinanceHistoricalDataFetcher(
-        symbol="BTCUSDT",
-        interval="4h",
-        exchange="binance_us"
+        symbol=symbol,
+        interval=interval,
+        exchange=exchange
     )
 
     # Fetch complete history
@@ -54,3 +26,37 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"Error during data collection: {str(e)}")
+
+
+def calculate_macd_values(directory_name):
+    # Example usage
+    data_dir = Path(directory_name)
+    processor = MACDProcessor(
+        data_dir=data_dir,
+        ma_fast=Config.MA_FAST,
+        ma_slow=Config.MA_SLOW,
+        signal_length=Config.SIGNAL_LENGTH
+    )
+    # Process specific symbol and interval
+    processor.process_csv("BTCUSDT", "15m")
+
+    processor = MACDProcessor(
+        data_dir=data_dir,
+        ma_fast=8,
+        ma_slow=17,
+        signal_length=9
+    )
+    # Process specific symbol and interval
+    processor.process_csv("BTCUSDT", "15m")
+
+
+if __name__ == "__main__":
+    ###############################
+    ####### FETCH DATA ############
+    ###############################
+    # get_historical_data(symbol="BTCUSDT", interval="4h", exchange="binance_us")
+
+    ###############################
+    ####### CALCULATE MACD VALUES #
+    ###############################
+    calculate_macd_values(directory_name="binance_futures_historical_data")

@@ -17,9 +17,9 @@ class Config(BaseClass):
     MARKETS = ["btc_usdt", "eth_usdt"]
     CANDLESTICK_TIME_INTERVAL = '1m'
     #MACD PARAMS
-    MA_FAST = 3
-    MA_SLOW = 5
-    SIGNAL_LENGTH = 3
+    MA_FAST = 12
+    MA_SLOW = 26
+    SIGNAL_LENGTH = 9
     #RSI PARAMS
     RSI_LOOKBACK = 14
     OVERBOUGHT = 70
