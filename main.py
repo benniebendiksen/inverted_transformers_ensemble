@@ -29,7 +29,7 @@ def get_historical_data(symbol, interval, exchange):
         print(f"Error during data collection: {str(e)}")
 
 
-def calculate_macd_values(directory_name):
+def calculate_macd_values(directory_name, symbol, interval):
     data_dir = Path(directory_name)
     processor = MACDProcessor(
         data_dir=data_dir,
@@ -38,7 +38,7 @@ def calculate_macd_values(directory_name):
         signal_length=Config.SIGNAL_LENGTH
     )
 
-    processor.process_csv("BTCUSDT", "15m")
+    processor.process_csv(symbol, interval)
 
 
     processor = MACDProcessor(
@@ -48,9 +48,9 @@ def calculate_macd_values(directory_name):
         signal_length=9
     )
     # Process specific symbol and interval
-    processor.process_csv("BTCUSDT", "15m")
+    processor.process_csv(symbol, interval)
 
-def calculate_rsi_values(directory_name):
+def calculate_rsi_values(directory_name, symbol, interval):
     data_dir = Path(directory_name)
     processor = RSIProcessor(
         data_dir=data_dir,
@@ -59,24 +59,27 @@ def calculate_rsi_values(directory_name):
         overbought=Config.RSI_OVERBOUGHT
     )
 
-    processor.process_csv("BTCUSDT", "15m")
+    processor.process_csv(symbol, interval)
 
 
 if __name__ == "__main__":
     ###############################
     ####### FETCH DATA ############
     ###############################
-    # get_historical_data(symbol="BTCUSDT", interval="4h", exchange="binance_us")
+    symbol = "BTCUSDC"
+    interval = "15m"
+    exchange = "binance_us"
+    # get_historical_data(symbol="BTCUSDC", interval="15m", exchange=exchange)
 
     ###############################
     ####### CALCULATE MACD VALUES #
     ###############################
-    # calculate_macd_values(directory_name="binance_futures_historical_data")
+    # calculate_macd_values(directory_name="binance_us_historical_data", symbol=symbol, interval=interval)
 
     ###############################
     ####### CALCULATE RSI VALUES #
     ###############################
-    calculate_rsi_values(directory_name="binance_futures_historical_data")
+    calculate_rsi_values(directory_name="binance_us_historical_data", symbol=symbol, interval=interval)
 
     ##################################
     ####### CALCULATE LOG and LOGGRO #
