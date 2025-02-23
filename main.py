@@ -1,6 +1,7 @@
-from src.BinanceHistoricalDataFetcher import BinanceHistoricalDataFetcher
-from src.MACDProcessor import MACDProcessor
 from src.Config import Config
+from src.BinanceHistoricalDataFetcher import BinanceHistoricalDataFetcher
+from src.indicators.MACDProcessor import MACDProcessor
+from src.indicators.RSIProcessor import RSIProcessor
 from pathlib import Path
 
 
@@ -29,7 +30,6 @@ def get_historical_data(symbol, interval, exchange):
 
 
 def calculate_macd_values(directory_name):
-    # Example usage
     data_dir = Path(directory_name)
     processor = MACDProcessor(
         data_dir=data_dir,
@@ -37,7 +37,7 @@ def calculate_macd_values(directory_name):
         ma_slow=Config.MA_SLOW,
         signal_length=Config.SIGNAL_LENGTH
     )
-    # Process specific symbol and interval
+
     processor.process_csv("BTCUSDT", "15m")
 
     processor = MACDProcessor(
@@ -47,6 +47,17 @@ def calculate_macd_values(directory_name):
         signal_length=9
     )
     # Process specific symbol and interval
+    processor.process_csv("BTCUSDT", "15m")
+
+def calculate_rsi_values(directory_name):
+    data_dir = Path(directory_name)
+    processor = RSIProcessor(
+        data_dir=data_dir,
+        length=Config.RSI_LOOKBACK,
+        oversold=Config.RSI_OVERSOLD,
+        overbought=Config.RSI_OVERBOUGHT
+    )
+
     processor.process_csv("BTCUSDT", "15m")
 
 
@@ -59,4 +70,9 @@ if __name__ == "__main__":
     ###############################
     ####### CALCULATE MACD VALUES #
     ###############################
-    calculate_macd_values(directory_name="binance_futures_historical_data")
+    # calculate_macd_values(directory_name="binance_futures_historical_data")
+
+    ###############################
+    ####### CALCULATE RSI VALUES #
+    ###############################
+    calculate_rsi_values(directory_name="binance_futures_historical_data")

@@ -1,6 +1,7 @@
 from src.BaseClass import BaseClass
 import os
 
+
 class Config(BaseClass):
     """
     Configuration class
@@ -16,11 +17,11 @@ class Config(BaseClass):
     AGGTRADE_FILENAME = "df_aggTrade_returned.json"
     MARKETS = ["btc_usdt", "eth_usdt"]
     CANDLESTICK_TIME_INTERVAL = '1m'
-    #MACD PARAMS
+    # MACD PARAMS
     MA_FAST = 12
     MA_SLOW = 26
     SIGNAL_LENGTH = 9
-    #RSI PARAMS
+    # RSI PARAMS
     RSI_LOOKBACK = 14
-    OVERBOUGHT = 70
-    OVERSOLD = 30
+    RSI_OVERBOUGHT = 70
+    RSI_OVERSOLD = 30
