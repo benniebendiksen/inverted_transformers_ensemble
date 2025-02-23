@@ -1,11 +1,11 @@
+from src.Config import Config
 import pandas as pd
-from datetime import datetime, timezone
 import os
 from pathlib import Path
 
 
 class MACDProcessor:
-    def __init__(self, data_dir: Path, ma_fast: int = 12, ma_slow: int = 26, signal_length: int = 9):
+    def __init__(self, data_dir: Path, ma_fast: int = Config.MA_FAST, ma_slow: int = Config.MA_SLOW, signal_length: int = Config.SIGNAL_LENGTH):
         """
         Initialize MACD processor with parameters
 
@@ -23,6 +23,8 @@ class MACDProcessor:
             self.macd_variant = "long"
         else:
             self.macd_variant = "short"
+        self.histogram_field_name = f"macd_histogram_{self.macd_variant}"
+        self.trend_direction_field_name = f"trend_direction_{self.macd_variant}"
 
     def process_csv(self, symbol: str, interval: str) -> None:
         """
@@ -39,24 +41,24 @@ class MACDProcessor:
 
         # Read the CSV file
         df = pd.read_csv(filename, index_col=0)
-
-        # Calculate MACD indicators
-        signals = self._generate_signals(df['close'])
-        histogram_field_name = f"macd_histogram_{self.macd_variant}"
-        df[histogram_field_name] = signals['MACD-Signal']
-        # Generate trend direction
-        trend_direction_field_name = f"trend_direction_{self.macd_variant}"
-        df[trend_direction_field_name] = -99
-        df.loc[signals['macd_line'] > signals['signal_line'], trend_direction_field_name] = 1
-        df.loc[signals['macd_line'] < signals['signal_line'], trend_direction_field_name] = -1
-        df.loc[signals['macd_line'] == signals['signal_line'], trend_direction_field_name] = 0
-
+        df = self.calculate_macd_values(df)
         # Save back to CSV
         df.to_csv(filename)
 
         print(f"Processed {filename}")
         print(f"Sample of processed data:")
-        print(df[['close', histogram_field_name, trend_direction_field_name]].tail())
+        print(df[['close', self.histogram_field_name, self.trend_direction_field_name]].tail())
+
+    def calculate_macd_values(self, df):
+        # Calculate MACD indicators
+        signals = self._generate_signals(df['close'])
+        df[self.histogram_field_name] = signals['MACD-Signal']
+        # Generate trend direction
+        df[self.trend_direction_field_name] = -99
+        df.loc[signals['macd_line'] > signals['signal_line'], self.trend_direction_field_name] = 1
+        df.loc[signals['macd_line'] < signals['signal_line'], self.trend_direction_field_name] = -1
+        df.loc[signals['macd_line'] == signals['signal_line'], self.trend_direction_field_name] = 0
+        return df
 
     def _generate_signals(self, price_series: pd.Series) -> pd.DataFrame:
         """

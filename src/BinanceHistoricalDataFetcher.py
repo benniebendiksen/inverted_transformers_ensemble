@@ -2,6 +2,8 @@ import os
 import sys
 
 from src.Config import Config
+from src.indicators.MACDProcessor import MACDProcessor
+from src.indicators.RSIProcessor import RSIProcessor
 from unicorn_binance_rest_api import BinanceRestApiManager
 from datetime import datetime, timedelta, timezone
 import pandas as pd
@@ -322,7 +324,7 @@ class BinanceHistoricalDataFetcher:
             return pd.DataFrame()
 
         final_df = pd.concat(all_data).sort_index()
-        self.save_data_forwards(final_df)
+        self.save_data_forwards_with_indicators(final_df)
 
         # Log collection statistics
         self.logger.info(f"Data collection completed:")
@@ -332,6 +334,76 @@ class BinanceHistoricalDataFetcher:
         self.logger.info(f"Empty responses: {self.stats['empty_responses']}")
 
         return final_df
+
+    def save_data_forwards_with_indicators(self, df: pd.DataFrame) -> None:
+        """
+        Save the DataFrame to a CSV file while maintaining index consistency and indicator columns.
+        Recalculates indicators only for new data points.
+        """
+        filename = self.data_dir / f"{self.symbol.lower()}_{self.interval}_historical.csv"
+        df.sort_index(inplace=True)
+        self.counter += 1
+
+        try:
+            if os.path.exists(filename):
+                # Load existing CSV with all columns
+                existing_df = pd.read_csv(filename, index_col=0)
+
+                # Get newest stored timestamp
+                newest_timestamp = existing_df.index[-1]
+                print(f"existing oldest ts: {existing_df.index[0]}")
+                print(f"existing newest ts: {newest_timestamp}")
+                print(f"new chunk oldest ts: {df.index[0]}")
+                print(f"new chunk newest ts: {df.index[-1]}")
+
+                # Only append data newer than our newest stored timestamp
+                new_data = df[df.index > newest_timestamp]
+
+                if not new_data.empty:
+                    # Get lookback data for indicator calculations
+                    lookback_size = Config.RSI_LOOKBACK  # Maximum lookback needed for indicators
+                    lookback_data = existing_df.tail(lookback_size)
+
+                    # Combine lookback data with new data
+                    calculation_df = pd.concat([lookback_data, new_data])
+
+                    # Process indicators with external processors
+                    macd_processor = MACDProcessor(Path("dummy_directory"))  # Don't need data_dir for direct processing
+                    macd_processor_short = MACDProcessor(data_dir=Path("dummy_directory"), ma_fast=8, ma_slow=17, signal_length=9)
+                    rsi_processor = RSIProcessor(Path("dummy_directory"))
+
+                    # Calculate indicators
+                    temp_df = calculation_df.copy()
+                    temp_df = macd_processor.calculate_macd_values(temp_df)  # Get MACD indicators
+                    temp_df = macd_processor_short.calculate_macd_values(temp_df)
+                    temp_df = rsi_processor.calculate_rsi(temp_df)  # Get RSI indicators
+
+                    # Extract only the new records with their indicators
+                    new_data_with_indicators = temp_df[temp_df.index > newest_timestamp]
+
+                    # Combine with existing data
+                    combined_df = pd.concat([existing_df, new_data_with_indicators])
+                else:
+                    combined_df = existing_df
+            else:
+                # For new file, calculate all indicators
+                macd_processor = MACDProcessor(Path("dummy_directory"))
+                macd_processor_short = MACDProcessor(data_dir=Path("dummy_directory"), ma_fast=8, ma_slow=17,
+                                                     signal_length=9)
+                rsi_processor = RSIProcessor(Path("dummy_directory"))
+
+                combined_df = df.copy()
+                combined_df = macd_processor.calculate_macd_values(combined_df)
+                combined_df = macd_processor_short.calculate_macd_values(combined_df)
+                combined_df = rsi_processor.calculate_rsi(combined_df)
+
+            # Save back to CSV
+            combined_df.to_csv(filename, mode="w", header=True, index=True)
+            print(f"Appended {len(new_data) if 'new_data' in locals() else len(df)} new records to {filename}")
+
+        except Exception as e:
+            print(f"Error during data saving: {str(e)}")
+            sys.exit(2)
 
     def save_data_backwards(self, df: pd.DataFrame) -> None:
         """Save the DataFrame to a CSV file while maintaining index consistency"""
@@ -379,7 +451,6 @@ class BinanceHistoricalDataFetcher:
                 newest_timestamp = existing_df.index[-1]
                 print(f"existing oldest ts: {existing_df.index[0]}")
                 print(f"existing newest ts: {newest_timestamp}")
-
                 print(f"new chunk oldest ts: {df.index[0]}")
                 print(f"new chunk newest ts: {df.index[-1]}")
 

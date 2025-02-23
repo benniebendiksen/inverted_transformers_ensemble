@@ -1,10 +1,11 @@
+from src.Config import Config
 import pandas as pd
 import numpy as np
 from pathlib import Path
 
 
 class RSIProcessor:
-    def __init__(self, data_dir: Path, length: int = 14, oversold: float = 30.0, overbought: float = 70.0):
+    def __init__(self, data_dir: Path, length: int = Config.RSI_LOOKBACK, oversold: float = Config.RSI_OVERSOLD, overbought: float = Config.RSI_OVERBOUGHT):
         """
         Initialize RSI processor with parameters
 
@@ -36,7 +37,7 @@ class RSIProcessor:
         df = pd.read_csv(filename, index_col=0)
 
         # Calculate RSI and signals
-        df_processed = self._calculate_rsi(df)
+        df_processed = self.calculate_rsi(df)
 
         # Save back to CSV
         df_processed.to_csv(filename)
@@ -45,7 +46,7 @@ class RSIProcessor:
         print(f"Sample of processed data:")
         print(df_processed[['close', 'RSI', 'RSI_signal']].tail())
 
-    def _calculate_rsi(self, df: pd.DataFrame) -> pd.DataFrame:
+    def calculate_rsi(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Calculate RSI and generate trading signals
 
