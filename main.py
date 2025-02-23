@@ -76,3 +76,7 @@ if __name__ == "__main__":
     ####### CALCULATE RSI VALUES #
     ###############################
     calculate_rsi_values(directory_name="binance_futures_historical_data")
+
+    ##################################
+    ####### CALCULATE LOG and LOGGRO #
+    ##################################

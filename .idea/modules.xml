@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/trend-activated-trailing-stop-loss-bot.iml" filepath="$PROJECT_DIR$/.idea/trend-activated-trailing-stop-loss-bot.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/inverted_transformers_ensemble.iml" filepath="$PROJECT_DIR$/.idea/inverted_transformers_ensemble.iml" />
     </modules>
   </component>
 </project>
