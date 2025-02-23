@@ -40,6 +40,7 @@ def calculate_macd_values(directory_name):
 
     processor.process_csv("BTCUSDT", "15m")
 
+
     processor = MACDProcessor(
         data_dir=data_dir,
         ma_fast=8,
