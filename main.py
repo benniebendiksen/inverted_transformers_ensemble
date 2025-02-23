@@ -67,9 +67,9 @@ if __name__ == "__main__":
     ####### FETCH DATA ############
     ###############################
     symbol = "BTCUSDC"
-    interval = "15m"
+    interval = "4h"
     exchange = "binance_us"
-    # get_historical_data(symbol="BTCUSDC", interval="15m", exchange=exchange)
+    get_historical_data(symbol=symbol, interval=interval, exchange=exchange)
 
     ###############################
     ####### CALCULATE MACD VALUES #
