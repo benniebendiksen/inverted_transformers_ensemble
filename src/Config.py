@@ -17,7 +17,7 @@ class Config(BaseClass):
     AGGTRADE_FILENAME = "df_aggTrade_returned.json"
     MARKETS = ["btc_usdt", "eth_usdt"]
     CANDLESTICK_TIME_INTERVAL = '1m'
-    # MACD PARAMS
+    # MACD 1 PARAMS
     MA_FAST = 12
     MA_SLOW = 26
     SIGNAL_LENGTH = 9
@@ -25,3 +25,8 @@ class Config(BaseClass):
     RSI_LOOKBACK = 14
     RSI_OVERBOUGHT = 70
     RSI_OVERSOLD = 30
+    # Bollinger Bands 1 PARAMS
+    BOLL_LENGTH = 20
+    BOLL_MULTIPLIER = 2.0
+    SLOPE_PERIOD = 10
+
