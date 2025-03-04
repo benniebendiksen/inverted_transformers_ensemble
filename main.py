@@ -4,6 +4,7 @@ from src.indicators.MACDProcessor import MACDProcessor
 from src.indicators.BollingerBandsProcessor import BollingerBandsProcessor
 from src.indicators.RSIProcessor import RSIProcessor
 from src.indicators.MarketFeaturesProcessor import MarketFeaturesProcessor
+from src.indicators.HorizonAlignedIndicatorsProcessor import HorizonAlignedIndicatorsProcessor
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -115,13 +116,19 @@ def calculate_indicators(directory_name, symbols, intervals):
             # Fundamental Market Features processor
             market_processor = MarketFeaturesProcessor(
                 data_dir=data_dir,
-                lag_periods=[1, 5, 10, 20],
-                volatility_windows=[5, 10, 20],
-                log_transform=True
+                lag_periods=[1],
+                volatility_windows=[4, 8],
+                volume_windows=[4, 8]
             )
-
-            # Process historical data (like other processors)
             market_processor.process_csv(symbol, interval)
+
+            # Horizon-Aligned Features processor
+            horizon_processor = HorizonAlignedIndicatorsProcessor(
+                data_dir=data_dir,
+                forecast_steps=Config.FORECAST_STEPS,
+                multiples=[1]
+            )
+            horizon_processor.process_csv(symbol, interval)
 
             print(f"Completed processing for {symbol} {interval}")
 
@@ -182,9 +189,16 @@ def prepare_ml_datasets(directory_name, symbols, intervals, target_horizon=24, t
 
     market_processor = MarketFeaturesProcessor(
         data_dir=data_dir,
-        lag_periods=[1, 5, 10, 20],
-        volatility_windows=[5, 10, 20],
-        log_transform=True
+        lag_periods=[1],
+        volatility_windows=[4, 8],
+        volume_windows=[4, 8]
+    )
+
+    # Horizon-Aligned Features processor
+    horizon_processor = HorizonAlignedIndicatorsProcessor(
+        data_dir=data_dir,
+        forecast_steps=Config.FORECAST_STEPS,
+        multiples=[1]
     )
 
     # Initialize data structures for split datasets
@@ -238,6 +252,7 @@ def prepare_ml_datasets(directory_name, symbols, intervals, target_horizon=24, t
     processed_bband_secondary = bband_processor_secondary.process_data(split_data, symbols, intervals)
     processed_rsi = rsi_processor.process_data(split_data, symbols, intervals)
     processed_fundamentals = market_processor.process_data(split_data, symbols, intervals)
+    processed_horizon_aligned_features = horizon_processor.process_data(split_data, symbols, intervals)
 
     # Get all the normalized features for reference
     all_features = []
@@ -247,6 +262,7 @@ def prepare_ml_datasets(directory_name, symbols, intervals, target_horizon=24, t
     all_features.extend(bband_processor_secondary.get_feature_names(include_normalized=True))
     all_features.extend(rsi_processor.get_feature_names(include_normalized=True))
     all_features.extend(market_processor.get_feature_names(include_normalized=True))
+    all_features.extend(horizon_processor.get_feature_names(include_normalized=True))
 
     # Save feature list for model training reference
     with open(data_dir / 'feature_list.json', 'w') as f:
@@ -383,7 +399,7 @@ def train_transformer_model(sequence_datasets):
 if __name__ == "__main__":
     # Configuration. symbols and intervals can be extended for multi-symbol and multi-interval processing
     symbols = ["BTCUSDC"]
-    intervals = ["30m"]
+    intervals = ["15m"]
     data_directory = "binance_us_historical_data"
 
     # Create data directory if it doesn't exist
