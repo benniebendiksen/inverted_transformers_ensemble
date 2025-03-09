@@ -6,5 +6,6 @@
 *.json 
 .env
 .idea/workspace.xml
-.idea/workspace.xml
-.idea/workspace.xml
+binance_us_historical_data/btcusdc_15m_historical.csv
+btcusdc_pca_components_30.csv
+btcusdc_pca_components_44.csv

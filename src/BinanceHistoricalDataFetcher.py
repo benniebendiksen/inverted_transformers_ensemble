@@ -3,7 +3,11 @@ import sys
 
 from src.Config import Config
 from src.indicators.MACDProcessor import MACDProcessor
+from src.indicators.BollingerBandsProcessor import BollingerBandsProcessor
 from src.indicators.RSIProcessor import RSIProcessor
+from src.indicators.MarketFeaturesProcessor import MarketFeaturesProcessor
+from src.indicators.HorizonAlignedIndicatorsProcessor import HorizonAlignedIndicatorsProcessor
+from dataset_descriptives import print_df_stats
 from unicorn_binance_rest_api import BinanceRestApiManager
 from datetime import datetime, timedelta, timezone
 import pandas as pd
@@ -249,13 +253,13 @@ class BinanceHistoricalDataFetcher:
 
         return final_df
 
-    def fetch_from_start_time_working_forwards(self, start_datetime=None) -> pd.DataFrame:
+    def fetch_from_start_time_working_forwards(self, start_datetime) -> pd.DataFrame:
         """
         Fetch all available historical data from a given start time working forwards.
         All timestamps are handled in UTC to ensure consistency with Binance's API.
 
         Args:
-            start_datetime: Optional string in format "YYYY-MM-DD HH:MM:SS"
+            start_datetime: string in format "YYYY-MM-DD HH:MM:SS"
                            Should be in UTC time
         """
         print(f"Starting forward historical data collection for {self.symbol}")
@@ -271,8 +275,7 @@ class BinanceHistoricalDataFetcher:
             dt_obj = dt_obj.replace(tzinfo=timezone.utc)  # Explicitly set UTC
             start_time = int(dt_obj.timestamp() * 1000)
         else:
-            # Start from earliest available data in UTC
-            start_time = int(datetime(2017, 8, 17, tzinfo=timezone.utc).timestamp() * 1000)
+            raise ValueError("start_datetime must be provided")
 
         # Get current time in UTC
         current_time = int(datetime.now(timezone.utc).timestamp() * 1000)
@@ -335,6 +338,229 @@ class BinanceHistoricalDataFetcher:
 
         return final_df
 
+    # def save_data_forwards_with_indicators(self, df: pd.DataFrame) -> None:
+    #     """
+    #     Save the DataFrame to a CSV file while maintaining index consistency and indicator columns.
+    #     Recalculates indicators only for new data points.
+    #     """
+    #     filename = self.data_dir / f"{self.symbol.lower()}_{self.interval}_historical.csv"
+    #     df.sort_index(inplace=True)
+    #     self.counter += 1
+    #
+    #     try:
+    #         if os.path.exists(filename):
+    #             # Load existing CSV with all columns - ensure index is parsed as datetime
+    #             existing_df = pd.read_csv(filename, index_col=0, parse_dates=True)
+    #
+    #             # Identify columns that need to be numeric for calculations
+    #             numeric_columns = ['open', 'high', 'low', 'close', 'volume', 'quote_volume',
+    #                                'taker_buy_base', 'taker_buy_quote']
+    #
+    #             # Ensure critical columns are numeric in the existing dataframe
+    #             for column in numeric_columns:
+    #                 if column in existing_df.columns:
+    #                     existing_df[column] = pd.to_numeric(existing_df[column], errors='coerce')
+    #
+    #             # Get newest stored timestamp
+    #             newest_timestamp = existing_df.index[-1]
+    #             print(f"existing oldest ts: {existing_df.index[0]}")
+    #             print(f"existing newest ts: {newest_timestamp}")
+    #             print(f"new chunk oldest ts: {df.index[0]}")
+    #             print(f"new chunk newest ts: {df.index[-1]}")
+    #
+    #             # Only append data newer than our newest stored timestamp
+    #             new_data = df[df.index > newest_timestamp].copy()  # Create an explicit copy
+    #
+    #             if not new_data.empty:
+    #                 # Before combining, ensure new_data columns have matching types with existing_df
+    #                 for column in numeric_columns:
+    #                     if column in new_data.columns and column in existing_df.columns:
+    #                         # Ensure the column has the same dtype in both dataframes
+    #                         if new_data[column].dtype != existing_df[column].dtype:
+    #                             # If existing is numeric and new is not, convert new to match existing
+    #                             if pd.api.types.is_numeric_dtype(existing_df[column].dtype):
+    #                                 new_data[column] = pd.to_numeric(new_data[column], errors='coerce')
+    #
+    #                 # Get lookback data for indicator calculations - using minimum required lookback
+    #                 # Get the maximum lookback required by any indicator
+    #                 lookback_size = 50  # BB secondary length
+    #                 macd_lookback = max(Config.MA_SLOW, 17) + Config.SIGNAL_LENGTH  # For both MACD processors
+    #                 rsi_lookback = Config.RSI_LOOKBACK
+    #                 market_lookback = 8  # Maximum window size in market features
+    #                 horizon_lookback = Config.FORECAST_STEPS + 1
+    #
+    #                 max_lookback = max(lookback_size, macd_lookback, rsi_lookback, market_lookback, horizon_lookback)
+    #
+    #                 # Get only necessary lookback data
+    #                 lookback_data = existing_df.tail(max_lookback).copy()  # Create explicit copy
+    #
+    #                 print(
+    #                     f"Processing with lookback size: {len(lookback_data)} records for {len(new_data)} new records")
+    #
+    #                 # Combine lookback data with new data
+    #                 calculation_df = pd.concat([lookback_data, new_data])
+    #
+    #                 # Final check: ensure all critical columns are numeric in the combined dataframe
+    #                 for column in numeric_columns:
+    #                     if column in calculation_df.columns:
+    #                         calculation_df[column] = pd.to_numeric(calculation_df[column], errors='coerce')
+    #
+    #                 # Debug - print datatypes
+    #                 print("Data types after combination:")
+    #                 for column in numeric_columns:
+    #                     if column in calculation_df.columns:
+    #                         print(f"Column {column}: {calculation_df[column].dtype}")
+    #
+    #                 # Process indicators with external processors
+    #                 try:
+    #                     macd_processor = MACDProcessor(
+    #                         data_dir=Path("dummy_directory"),
+    #                         ma_fast=Config.MA_FAST,
+    #                         ma_slow=Config.MA_SLOW,
+    #                         signal_length=Config.SIGNAL_LENGTH
+    #                     )
+    #                     macd_processor_short = MACDProcessor(
+    #                         data_dir=Path("dummy_directory"),
+    #                         ma_fast=8,
+    #                         ma_slow=17,
+    #                         signal_length=9
+    #                     )
+    #                     bband_processor = BollingerBandsProcessor(
+    #                         data_dir=Path("dummy_directory"),
+    #                         length=Config.BOLL_LENGTH,
+    #                         multiplier=Config.BOLL_MULTIPLIER,
+    #                         slope_period=Config.SLOPE_PERIOD
+    #                     )
+    #                     bband_processor_secondary = BollingerBandsProcessor(
+    #                         data_dir=Path("dummy_directory"),
+    #                         length=50,
+    #                         multiplier=Config.BOLL_MULTIPLIER,
+    #                         slope_period=Config.SLOPE_PERIOD
+    #                     )
+    #                     rsi_processor = RSIProcessor(
+    #                         data_dir=Path("dummy_directory"),
+    #                         length=Config.RSI_LOOKBACK,
+    #                         oversold=Config.RSI_OVERSOLD,
+    #                         overbought=Config.RSI_OVERBOUGHT
+    #                     )
+    #
+    #                     market_processor = MarketFeaturesProcessor(
+    #                         data_dir=Path("dummy_directory"),
+    #                         lag_periods=[1],
+    #                         volatility_windows=[4, 8],
+    #                         volume_windows=[4, 8]
+    #                     )
+    #
+    #                     horizon_processor = HorizonAlignedIndicatorsProcessor(
+    #                         data_dir=Path("dummy_directory"),
+    #                         forecast_steps=Config.FORECAST_STEPS,
+    #                         multiples=[1]
+    #                     )
+    #
+    #                     # Calculate indicators
+    #                     temp_df = calculation_df.copy()
+    #
+    #                     # Track processing time
+    #                     start_time = time.time()
+    #
+    #                     # Perform calculations that might need to be wrapped in try/except blocks
+    #                     try:
+    #                         temp_df = macd_processor.calculate_macd_values(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in MACD long calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = macd_processor_short.calculate_macd_values(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in MACD short calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = bband_processor.calculate_bollinger_values(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in Bollinger Bands calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = bband_processor_secondary.calculate_bollinger_values(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in secondary Bollinger Bands calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = rsi_processor.calculate_rsi(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in RSI calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = market_processor.calculate_base_features(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in market base features calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = market_processor.calculate_lagged_features(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in lagged features calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = market_processor.calculate_volatility_features(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in volatility features calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = market_processor.calculate_candlestick_features(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in candlestick features calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = market_processor.calculate_volume_features(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in volume features calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = horizon_processor.calculate_virtual_candles(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in virtual candles calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = horizon_processor.calculate_moving_averages_and_regression(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in moving averages calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = horizon_processor.calculate_bands(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in bands calculation: {str(e)}")
+    #
+    #                     try:
+    #                         temp_df = horizon_processor.calculate_momentum(temp_df)
+    #                     except Exception as e:
+    #                         print(f"Error in momentum calculation: {str(e)}")
+    #
+    #                     end_time = time.time()
+    #                     print(f"Total indicator calculation time: {end_time - start_time:.2f} seconds")
+    #
+    #                 except Exception as e:
+    #                     print(f"Error setting up processors: {str(e)}")
+    #                     sys.exit(2)
+    #
+    #                 # Extract only the new records with their indicators
+    #                 new_data_with_indicators = temp_df[temp_df.index > newest_timestamp]
+    #
+    #                 # Combine with existing data
+    #                 combined_df = pd.concat([existing_df, new_data_with_indicators])
+    #             else:
+    #                 raise Exception("No new data to append")
+    #         else:
+    #             # Raise exception as this functionality is not supported for new files
+    #             raise Exception(
+    #                 "Cannot append indicators to a new file; use fetch_from_end_time() instead to grab all historic data")
+    #
+    #         # Save back to CSV
+    #         combined_df.to_csv(filename, mode="w", header=True, index=True)
+    #         print(f"Appended {len(new_data) if 'new_data' in locals() else len(df)} new records to {filename}")
+    #
+    #     except Exception as e:
+    #         print(f"Error during data saving: {str(e)}")
+    #         sys.exit(2)
+
     def save_data_forwards_with_indicators(self, df: pd.DataFrame) -> None:
         """
         Save the DataFrame to a CSV file while maintaining index consistency and indicator columns.
@@ -346,8 +572,17 @@ class BinanceHistoricalDataFetcher:
 
         try:
             if os.path.exists(filename):
-                # Load existing CSV with all columns
-                existing_df = pd.read_csv(filename, index_col=0)
+                # Load existing CSV with all columns - ensure index is parsed as datetime
+                existing_df = pd.read_csv(filename, index_col=0, parse_dates=True)
+
+                # Identify columns that need to be numeric for calculations
+                numeric_columns = ['open', 'high', 'low', 'close', 'volume', 'quote_volume',
+                                   'taker_buy_base', 'taker_buy_quote']
+
+                # Ensure critical columns are numeric in the existing dataframe
+                for column in numeric_columns:
+                    if column in existing_df.columns:
+                        existing_df[column] = pd.to_numeric(existing_df[column], errors='coerce')
 
                 # Get newest stored timestamp
                 newest_timestamp = existing_df.index[-1]
@@ -357,26 +592,101 @@ class BinanceHistoricalDataFetcher:
                 print(f"new chunk newest ts: {df.index[-1]}")
 
                 # Only append data newer than our newest stored timestamp
-                new_data = df[df.index > newest_timestamp]
+                new_data = df[df.index > newest_timestamp].copy()  # Create an explicit copy to avoid SettingWithCopyWarning
 
                 if not new_data.empty:
                     # Get lookback data for indicator calculations
-                    lookback_size = Config.RSI_LOOKBACK  # Maximum lookback needed for indicators
+                    lookback_size = 50  # Maximum lookback needed for indicators; currently determined by BB secondary length
                     lookback_data = existing_df.tail(lookback_size)
+
+                    # Before combining, ensure new_data columns have matching types with existing_df
+                    for column in numeric_columns:
+                        if column in new_data.columns and column in existing_df.columns:
+                            # Ensure the column has the same dtype in both dataframes
+                            if new_data[column].dtype != existing_df[column].dtype:
+                                # If existing is numeric and new is not, convert new to match existing
+                                if pd.api.types.is_numeric_dtype(existing_df[column].dtype):
+                                    new_data[column] = pd.to_numeric(new_data[column], errors='coerce')
 
                     # Combine lookback data with new data
                     calculation_df = pd.concat([lookback_data, new_data])
 
+                    # Final check: ensure all critical columns are numeric in the combined dataframe
+                    for column in numeric_columns:
+                        if column in calculation_df.columns:
+                            calculation_df[column] = pd.to_numeric(calculation_df[column], errors='coerce')
+
+                    # Debug - print datatypes
+                    print("Data types after combination:")
+                    for column in numeric_columns:
+                        if column in calculation_df.columns:
+                            print(f"Column {column}: {calculation_df[column].dtype}")
+
                     # Process indicators with external processors
-                    macd_processor = MACDProcessor(Path("dummy_directory"))  # Don't need data_dir for direct processing
+                    macd_processor = MACDProcessor(
+                        data_dir=Path("dummy_directory"),# Don't need data_dir for direct processing
+                        ma_fast=Config.MA_FAST,
+                        ma_slow=Config.MA_SLOW,
+                        signal_length=Config.SIGNAL_LENGTH
+                    )
                     macd_processor_short = MACDProcessor(data_dir=Path("dummy_directory"), ma_fast=8, ma_slow=17, signal_length=9)
-                    rsi_processor = RSIProcessor(Path("dummy_directory"))
+                    bband_processor = BollingerBandsProcessor(
+                        data_dir=Path("dummy_directory"),
+                        length=Config.BOLL_LENGTH,
+                        multiplier=Config.BOLL_MULTIPLIER,
+                        slope_period=Config.SLOPE_PERIOD
+                    )
+                    bband_processor_secondary = BollingerBandsProcessor(
+                        data_dir=Path("dummy_directory"),
+                        length=50,
+                        multiplier=Config.BOLL_MULTIPLIER,
+                        slope_period=Config.SLOPE_PERIOD
+                    )
+                    rsi_processor = RSIProcessor(
+                        data_dir=Path("dummy_directory"),
+                        length=Config.RSI_LOOKBACK,
+                        oversold=Config.RSI_OVERSOLD,
+                        overbought=Config.RSI_OVERBOUGHT
+                    )
+
+                    market_processor = MarketFeaturesProcessor(
+                        data_dir=Path("dummy_directory"),
+                        lag_periods=[1],
+                        volatility_windows=[4, 8],
+                        volume_windows=[4, 8]
+                    )
+
+                    horizon_processor = HorizonAlignedIndicatorsProcessor(
+                        data_dir=Path("dummy_directory"),
+                        forecast_steps=Config.FORECAST_STEPS,
+                        multiples=[1]
+                    )
 
                     # Calculate indicators
                     temp_df = calculation_df.copy()
-                    temp_df = macd_processor.calculate_macd_values(temp_df)  # Get MACD indicators
+                    temp_df = macd_processor.calculate_macd_values(temp_df)
+                    temp_df = macd_processor.calculate_enhanced_features(temp_df)
                     temp_df = macd_processor_short.calculate_macd_values(temp_df)
-                    temp_df = rsi_processor.calculate_rsi(temp_df)  # Get RSI indicators
+                    temp_df = macd_processor_short.calculate_enhanced_features(temp_df)
+
+                    temp_df = bband_processor.calculate_bollinger_values(temp_df)
+                    temp_df = bband_processor.calculate_enhanced_features(temp_df)
+                    temp_df = bband_processor_secondary.calculate_bollinger_values(temp_df)
+                    temp_df = bband_processor_secondary.calculate_enhanced_features(temp_df)
+
+                    temp_df = rsi_processor.calculate_rsi(temp_df)
+                    temp_df = rsi_processor.calculate_enhanced_features(temp_df)
+
+                    temp_df = market_processor.calculate_base_features(temp_df)
+                    temp_df = market_processor.calculate_lagged_features(temp_df)
+                    temp_df = market_processor.calculate_volatility_features(temp_df)
+                    temp_df = market_processor.calculate_candlestick_features(temp_df)
+                    temp_df = market_processor.calculate_volume_features(temp_df)
+
+                    temp_df = horizon_processor.calculate_virtual_candles(temp_df)
+                    temp_df = horizon_processor.calculate_moving_averages_and_regression(temp_df)
+                    temp_df = horizon_processor.calculate_bands(temp_df)
+                    temp_df = horizon_processor.calculate_momentum(temp_df)
 
                     # Extract only the new records with their indicators
                     new_data_with_indicators = temp_df[temp_df.index > newest_timestamp]
@@ -384,18 +694,10 @@ class BinanceHistoricalDataFetcher:
                     # Combine with existing data
                     combined_df = pd.concat([existing_df, new_data_with_indicators])
                 else:
-                    combined_df = existing_df
+                    raise Exception("No new data to append")
             else:
-                # For new file, calculate all indicators
-                macd_processor = MACDProcessor(Path("dummy_directory"))
-                macd_processor_short = MACDProcessor(data_dir=Path("dummy_directory"), ma_fast=8, ma_slow=17,
-                                                     signal_length=9)
-                rsi_processor = RSIProcessor(Path("dummy_directory"))
-
-                combined_df = df.copy()
-                combined_df = macd_processor.calculate_macd_values(combined_df)
-                combined_df = macd_processor_short.calculate_macd_values(combined_df)
-                combined_df = rsi_processor.calculate_rsi(combined_df)
+                # Raise exception as this functionality is not supported for new files
+                raise Exception("Cannot append indicators to a new file; use fetch_from_end_time() instead to grab all historic data")
 
             # Save back to CSV
             combined_df.to_csv(filename, mode="w", header=True, index=True)

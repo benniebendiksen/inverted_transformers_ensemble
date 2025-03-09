@@ -52,6 +52,45 @@ def get_historical_data(symbol, interval, exchange):
         return None
 
 
+def get_data_working_forward(symbol, interval, exchange, string_datetime):
+    """
+    Fetch historical data from binance exchange working forwards
+
+    Args:
+        symbol: Trading pair symbol
+        interval: Timeframe interval
+        exchange: Exchange name
+        string_datetime: String datetime to start fetching data from and proceed working forwards
+
+    Returns:
+        DataFrame with historical data if successful, None otherwise
+    """
+    fetcher = BinanceHistoricalDataFetcher(
+        symbol=symbol,
+        interval=interval,
+        exchange=exchange
+    )
+
+    # Fetch complete history
+    try:
+        df = fetcher.fetch_from_start_time_working_forwards(string_datetime)
+        if not df.empty:
+            print(f"\nData Summary:")
+            print(f"Total records: {len(df)}")
+            print(f"Date range: {df.index.min()} to {df.index.max()}")
+            print(f"Memory usage: {df.memory_usage().sum() / 1024 / 1024:.2f} MB")
+            print("\nSample of data:")
+            print(df.head())
+            return df
+        else:
+            print("No data collected!")
+            return None
+
+    except Exception as e:
+        print(f"Error during data collection: {str(e)}")
+        return None
+
+
 def calculate_indicators(directory_name, symbols, intervals):
     """
     Calculate technical indicators for all specified symbols and intervals
@@ -393,8 +432,6 @@ def train_transformer_model(sequence_datasets):
     print("Validation dataset size:", sequence_datasets['val']['X'].shape)
     print("Test dataset size:", sequence_datasets['test']['X'].shape)
 
-    # This function would be expanded with your transformer model implementation
-
 
 if __name__ == "__main__":
     # Configuration. symbols and intervals can be extended for multi-symbol and multi-interval processing
@@ -409,6 +446,7 @@ if __name__ == "__main__":
     for symbol in symbols:
         for interval in intervals:
             get_historical_data(symbol=symbol, interval=interval, exchange="binance_us")
+            # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
 
     # 2. Calculate technical indicators for all symbols and intervals
     calculate_indicators(directory_name=data_directory, symbols=symbols, intervals=intervals)

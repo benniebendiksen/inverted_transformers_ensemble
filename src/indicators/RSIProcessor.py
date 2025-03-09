@@ -1,3 +1,5 @@
+import sys
+
 from src.Config import Config
 import pandas as pd
 import numpy as np
@@ -200,71 +202,75 @@ class RSIProcessor:
         Returns:
             DataFrame with added RSI columns
         """
-        df = df.copy()
-        close_prices = df['close'].values
+        try:
+            df = df.copy()
+            close_prices = df['close'].values
 
-        # Initialize arrays for gains and losses
-        gains = np.zeros_like(close_prices)
-        losses = np.zeros_like(close_prices)
+            # Initialize arrays for gains and losses
+            gains = np.zeros_like(close_prices)
+            losses = np.zeros_like(close_prices)
 
-        # Calculate initial price changes
-        price_changes = np.diff(close_prices)
-        gains[1:] = np.where(price_changes > 0, price_changes, 0)
-        losses[1:] = np.where(price_changes < 0, -price_changes, 0)
+            # Calculate initial price changes
+            price_changes = np.diff(close_prices)
+            gains[1:] = np.where(price_changes > 0, price_changes, 0)
+            losses[1:] = np.where(price_changes < 0, -price_changes, 0)
 
-        # Calculate initial averages
-        avg_gain = np.sum(gains[1:self.length + 1]) / self.length
-        avg_loss = np.sum(losses[1:self.length + 1]) / self.length
+            # Calculate initial averages
+            avg_gain = np.sum(gains[1:self.length + 1]) / self.length
+            avg_loss = np.sum(losses[1:self.length + 1]) / self.length
 
-        # Initialize RSI array
-        rsi_values = np.zeros_like(close_prices)
-        rsi_values[:self.length] = 0  # First 'length' periods are 0
+            # Initialize RSI array
+            rsi_values = np.zeros_like(close_prices)
+            rsi_values[:self.length] = 0  # First 'length' periods are 0
 
-        # Calculate first RSI value
-        if avg_loss != 0:
-            rs = avg_gain / avg_loss
-            rsi_values[self.length] = 100 - (100 / (1 + rs))
-        else:
-            rsi_values[self.length] = 100
-
-        # Calculate subsequent RSI values
-        for i in range(self.length + 1, len(close_prices)):
-            avg_gain = ((avg_gain * (self.length - 1)) + gains[i]) / self.length
-            avg_loss = ((avg_loss * (self.length - 1)) + losses[i]) / self.length
-
+            # Calculate first RSI value
             if avg_loss != 0:
                 rs = avg_gain / avg_loss
-                rsi_values[i] = 100 - (100 / (1 + rs))
+                rsi_values[self.length] = 100 - (100 / (1 + rs))
             else:
-                rsi_values[i] = 100
+                rsi_values[self.length] = 100
 
-        # Add RSI values to DataFrame
-        df[self.rsi_field_name] = rsi_values
+            # Calculate subsequent RSI values
+            for i in range(self.length + 1, len(close_prices)):
+                avg_gain = ((avg_gain * (self.length - 1)) + gains[i]) / self.length
+                avg_loss = ((avg_loss * (self.length - 1)) + losses[i]) / self.length
 
-        # Generate trading signals
-        signals = np.full(len(df), 0, dtype=object)
-        skip_next = 2  # Skip first two signals
+                if avg_loss != 0:
+                    rs = avg_gain / avg_loss
+                    rsi_values[i] = 100 - (100 / (1 + rs))
+                else:
+                    rsi_values[i] = 100
 
-        for i in range(2, len(df)):
-            current_rsi = rsi_values[i]
-            prev_rsi = rsi_values[i - 1]
+            # Add RSI values to DataFrame
+            df[self.rsi_field_name] = rsi_values
 
-            # Detect Long Entry (RSI crosses below oversold level)
-            if current_rsi < self.oversold:
-                if skip_next <= 0:
-                    signals[i] = -1
+            # Generate trading signals
+            signals = np.full(len(df), 0, dtype=object)
+            skip_next = 2  # Skip first two signals
 
-            # Detect Short Entry (RSI crosses above overbought level)
-            elif current_rsi > self.overbought:
-                if skip_next <= 0:
-                    signals[i] = 1
+            for i in range(2, len(df)):
+                current_rsi = rsi_values[i]
+                prev_rsi = rsi_values[i - 1]
 
-            if skip_next > 0:
-                skip_next -= 1
+                # Detect Long Entry (RSI crosses below oversold level)
+                if current_rsi < self.oversold:
+                    if skip_next <= 0:
+                        signals[i] = -1
 
-        df[self.rsi_signal_field_name] = signals
+                # Detect Short Entry (RSI crosses above overbought level)
+                elif current_rsi > self.overbought:
+                    if skip_next <= 0:
+                        signals[i] = 1
 
-        return df
+                if skip_next > 0:
+                    skip_next -= 1
+
+            df[self.rsi_signal_field_name] = signals
+
+            return df
+        except Exception as e:
+            print(f"Error RSIProcessor: during calculate_rsi: {str(e)}")
+            sys.exit(2)
 
     def calculate_enhanced_features(self, df):
         """
@@ -276,26 +282,30 @@ class RSIProcessor:
         Returns:
             DataFrame with enhanced RSI features
         """
-        # 1. RSI Distance from mid-point (50)
-        # This measures how far RSI is from equilibrium
-        df[self.rsi_distance_field_name] = df[self.rsi_field_name] - 50
+        try:
+            # 1. RSI Distance from mid-point (50)
+            # This measures how far RSI is from equilibrium (i.e., an rsi value of 50)
+            df[self.rsi_distance_field_name] = df[self.rsi_field_name] - 50
 
-        # 2. RSI Slope (rate of change over slope_period)
-        df[self.rsi_slope_field_name] = 0.0
-        for i in range(self.slope_period, len(df)):
-            df.loc[df.index[i], self.rsi_slope_field_name] = (
-                    df[self.rsi_field_name].iloc[i] - df[self.rsi_field_name].iloc[i - self.slope_period]
-            )
+            # 2. RSI Slope (rate of change over slope_period)
+            df[self.rsi_slope_field_name] = 0.0
+            for i in range(self.slope_period, len(df)):
+                df.loc[df.index[i], self.rsi_slope_field_name] = (
+                        df[self.rsi_field_name].iloc[i] - df[self.rsi_field_name].iloc[i - self.slope_period]
+                )
 
-        # 3. RSI Oversold Distance - measures how far below oversold threshold
-        # Positive when oversold (RSI < oversold threshold), 0 otherwise
-        df[self.rsi_oversold_field_name] = np.maximum(self.oversold - df[self.rsi_field_name], 0)
+            # 3. RSI Oversold Distance - measures how far below oversold threshold
+            # Positive when oversold (RSI < oversold threshold), 0 otherwise
+            df[self.rsi_oversold_field_name] = np.maximum(self.oversold - df[self.rsi_field_name], 0)
 
-        # 4. RSI Overbought Distance - measures how far above overbought threshold
-        # Positive when overbought (RSI > overbought threshold), 0 otherwise
-        df[self.rsi_overbought_field_name] = np.maximum(df[self.rsi_field_name] - self.overbought, 0)
+            # 4. RSI Overbought Distance - measures how far above overbought threshold
+            # Positive when overbought (RSI > overbought threshold), 0 otherwise
+            df[self.rsi_overbought_field_name] = np.maximum(df[self.rsi_field_name] - self.overbought, 0)
 
-        return df
+            return df
+        except Exception as e:
+            print(f"Error RSIProcessor: during calculate_enhanced_features: {str(e)}")
+            sys.exit(2)
 
     def fit_normalization_params(self, df, symbol, interval):
         """
