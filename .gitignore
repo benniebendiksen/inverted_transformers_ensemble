@@ -6,6 +6,8 @@
 *.json 
 .env
 .idea/workspace.xml
+__pycache__/
+# data files
 binance_us_historical_data/btcusdc_15m_historical.csv
 btcusdc_pca_components_30.csv
 btcusdc_pca_components_44.csv
