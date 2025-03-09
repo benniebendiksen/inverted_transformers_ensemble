@@ -1,3 +1,5 @@
+import sys
+
 from src.Config import Config
 import pandas as pd
 import numpy as np
@@ -31,26 +33,26 @@ class MACDProcessor:
             self.macd_variant = "short"
 
         # Define field names for base calculations
-        self.macd_line_field_name = f"macd_line_{self.macd_variant}"
-        self.signal_line_field_name = f"signal_line_{self.macd_variant}"
-        self.histogram_field_name = f"macd_histogram_{self.macd_variant}"
-        self.trend_direction_field_name = f"trend_direction_{self.macd_variant}"
+        self.macd_line_field_name = f"MACD_macd_line_{self.macd_variant}"
+        self.signal_line_field_name = f"MACD_signal_line_{self.macd_variant}"
+        self.histogram_field_name = f"MACD_macd_histogram_{self.macd_variant}"
+        self.trend_direction_field_name = f"MACD_trend_direction_{self.macd_variant}"
 
         # Define field names for enhanced features
-        self.macd_distance_field_name = f"macd_distance_{self.macd_variant}"
-        self.macd_distance_norm_field_name = f"macd_distance_norm_{self.macd_variant}"
-        self.macd_slope_field_name = f"macd_slope_{self.macd_variant}"
-        self.macd_slope_norm_field_name = f"macd_slope_norm_{self.macd_variant}"
-        self.signal_slope_field_name = f"signal_slope_{self.macd_variant}"
-        self.signal_slope_norm_field_name = f"signal_slope_norm_{self.macd_variant}"
-        self.histogram_slope_field_name = f"histogram_slope_{self.macd_variant}"
-        self.histogram_slope_norm_field_name = f"histogram_slope_norm_{self.macd_variant}"
+        self.macd_distance_field_name = f"MACD_macd_distance_{self.macd_variant}"
+        self.macd_distance_norm_field_name = f"MACD_macd_distance_norm_{self.macd_variant}"
+        self.macd_slope_field_name = f"MACD_macd_slope_{self.macd_variant}"
+        self.macd_slope_norm_field_name = f"MACD_macd_slope_norm_{self.macd_variant}"
+        self.signal_slope_field_name = f"MACD_signal_slope_{self.macd_variant}"
+        self.signal_slope_norm_field_name = f"MACD_signal_slope_norm_{self.macd_variant}"
+        self.histogram_slope_field_name = f"MACD_histogram_slope_{self.macd_variant}"
+        self.histogram_slope_norm_field_name = f"MACD_histogram_slope_norm_{self.macd_variant}"
 
         # Dictionary to store normalization parameters
         self.normalization_params = {}
 
         # Default slope period for calculating rates of change
-        self.slope_period = 5
+        self.slope_period = 4
 
     def process_csv(self, symbol: str, interval: str) -> pd.DataFrame:
         """
@@ -202,21 +204,25 @@ class MACDProcessor:
         """
         Calculate base MACD indicators
         """
-        # Calculate MACD indicators
-        signals = self._generate_signals(df['close'])
+        try:
+            # Calculate MACD indicators
+            signals = self._generate_signals(df['close'])
 
-        # Store the components
-        df[self.macd_line_field_name] = signals['macd_line']
-        df[self.signal_line_field_name] = signals['signal_line']
-        df[self.histogram_field_name] = signals['MACD-Signal']
+            # Store the components
+            df[self.macd_line_field_name] = signals['macd_line']
+            df[self.signal_line_field_name] = signals['signal_line']
+            df[self.histogram_field_name] = signals['MACD-Signal']
 
-        # Generate trend direction
-        df[self.trend_direction_field_name] = -99
-        df.loc[signals['macd_line'] > signals['signal_line'], self.trend_direction_field_name] = 1
-        df.loc[signals['macd_line'] < signals['signal_line'], self.trend_direction_field_name] = -1
-        df.loc[signals['macd_line'] == signals['signal_line'], self.trend_direction_field_name] = 0
+            # Generate trend direction
+            df[self.trend_direction_field_name] = -99
+            df.loc[signals['macd_line'] > signals['signal_line'], self.trend_direction_field_name] = 1
+            df.loc[signals['macd_line'] < signals['signal_line'], self.trend_direction_field_name] = -1
+            df.loc[signals['macd_line'] == signals['signal_line'], self.trend_direction_field_name] = 0
 
-        return df
+            return df
+        except Exception as e:
+            print(f"Error MACDProcessor: during calculate_macd_values: {str(e)}")
+            sys.exit(2)
 
     def calculate_enhanced_features(self, df):
         """
@@ -225,44 +231,48 @@ class MACDProcessor:
         # 1. MACD Distance: Relative distance between MACD and Signal lines
         # Normalize by average true range over the same period for scale-invariance
         # Using close prices for normalization as an approximation
-        price_scale = df['close'].rolling(window=self.ma_slow).mean()
-        df[self.macd_distance_field_name] = (df[self.macd_line_field_name] - df[
-            self.signal_line_field_name]) / price_scale * 100
+        try:
+            price_scale = df['close'].rolling(window=self.ma_slow).mean()
+            df[self.macd_distance_field_name] = (df[self.macd_line_field_name] - df[
+                self.signal_line_field_name]) / price_scale * 100
 
-        # 2. Calculate slopes (percentage change over slope_period)
-        # Initialize slope columns
-        df[self.macd_slope_field_name] = 0.0
-        df[self.signal_slope_field_name] = 0.0
-        df[self.histogram_slope_field_name] = 0.0
+            # 2. Calculate slopes (percentage change over slope_period)
+            # Initialize slope columns
+            df[self.macd_slope_field_name] = 0.0
+            df[self.signal_slope_field_name] = 0.0
+            df[self.histogram_slope_field_name] = 0.0
 
-        # Calculate slopes from row i-slope_period to row i
-        for i in range(self.slope_period, len(df)):
-            # Skip if we encounter zero in the denominator to avoid division by zero
-            # MACD line slope
-            if abs(df[self.macd_line_field_name].iloc[i - self.slope_period]) > 1e-9:
-                df.loc[df.index[i], self.macd_slope_field_name] = (
-                        (df[self.macd_line_field_name].iloc[i] - df[self.macd_line_field_name].iloc[
-                            i - self.slope_period]) /
-                        abs(df[self.macd_line_field_name].iloc[i - self.slope_period]) * 100
-                )
+            # Calculate slopes from row i-slope_period to row i
+            for i in range(self.slope_period, len(df)):
+                # Skip if we encounter zero in the denominator to avoid division by zero
+                # MACD line slope
+                if abs(df[self.macd_line_field_name].iloc[i - self.slope_period]) > 1e-9:
+                    df.loc[df.index[i], self.macd_slope_field_name] = (
+                            (df[self.macd_line_field_name].iloc[i] - df[self.macd_line_field_name].iloc[
+                                i - self.slope_period]) /
+                            abs(df[self.macd_line_field_name].iloc[i - self.slope_period]) * 100
+                    )
 
-            # Signal line slope
-            if abs(df[self.signal_line_field_name].iloc[i - self.slope_period]) > 1e-9:
-                df.loc[df.index[i], self.signal_slope_field_name] = (
-                        (df[self.signal_line_field_name].iloc[i] - df[self.signal_line_field_name].iloc[
-                            i - self.slope_period]) /
-                        abs(df[self.signal_line_field_name].iloc[i - self.slope_period]) * 100
-                )
+                # Signal line slope
+                if abs(df[self.signal_line_field_name].iloc[i - self.slope_period]) > 1e-9:
+                    df.loc[df.index[i], self.signal_slope_field_name] = (
+                            (df[self.signal_line_field_name].iloc[i] - df[self.signal_line_field_name].iloc[
+                                i - self.slope_period]) /
+                            abs(df[self.signal_line_field_name].iloc[i - self.slope_period]) * 100
+                    )
 
-            # Histogram slope
-            if abs(df[self.histogram_field_name].iloc[i - self.slope_period]) > 1e-9:
-                df.loc[df.index[i], self.histogram_slope_field_name] = (
-                        (df[self.histogram_field_name].iloc[i] - df[self.histogram_field_name].iloc[
-                            i - self.slope_period]) /
-                        abs(df[self.histogram_field_name].iloc[i - self.slope_period]) * 100
-                )
+                # Histogram slope
+                if abs(df[self.histogram_field_name].iloc[i - self.slope_period]) > 1e-9:
+                    df.loc[df.index[i], self.histogram_slope_field_name] = (
+                            (df[self.histogram_field_name].iloc[i] - df[self.histogram_field_name].iloc[
+                                i - self.slope_period]) /
+                            abs(df[self.histogram_field_name].iloc[i - self.slope_period]) * 100
+                    )
 
-        return df
+            return df
+        except Exception as e:
+            print(f"Error MACDProcessor: during calculate_enhanced_features: {str(e)}")
+            sys.exit(2)
 
     def fit_normalization_params(self, df, symbol, interval):
         """

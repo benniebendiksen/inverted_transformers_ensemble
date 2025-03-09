@@ -1,3 +1,5 @@
+import sys
+
 from src.Config import Config
 import pandas as pd
 import numpy as np
@@ -19,7 +21,7 @@ class BollingerBandsProcessor:
             data_dir: Directory containing historical data CSV files
             length: Period for moving average calculation (default: 20)
             multiplier: Standard deviation multiplier (default: 2.0)
-            slope_period: Period for calculating slopes (default: 5)
+            slope_period: Period for calculating slopes
         """
         self.data_dir = data_dir
         self.length = length
@@ -27,26 +29,26 @@ class BollingerBandsProcessor:
         self.slope_period = slope_period
 
         # Define field names for base calculations
-        self.basis_field_name = f"basis_{self.length}"
-        self.upper_band_field_name = f"upper_band_{self.length}"
-        self.lower_band_field_name = f"lower_band_{self.length}"
-        self.signal_field_name = f"bband_signal_{self.length}"
+        self.basis_field_name = f"BB_basis_{self.length}"
+        self.upper_band_field_name = f"BB_upper_band_{self.length}"
+        self.lower_band_field_name = f"BB_lower_band_{self.length}"
+        self.signal_field_name = f"BB_bband_signal_{self.length}"
 
         # Define field names for enhanced features
-        self.band_width_field_name = f"band_width_{self.length}"
-        self.band_width_norm_field_name = f"band_width_norm_{self.length}"
-        self.price_band_pos_field_name = f"price_band_pos_{self.length}"
-        self.price_band_pos_norm_field_name = f"price_band_pos_norm_{self.length}"
-        self.upper_dist_field_name = f"upper_dist_{self.length}"
-        self.upper_dist_norm_field_name = f"upper_dist_norm_{self.length}"
-        self.lower_dist_field_name = f"lower_dist_{self.length}"
-        self.lower_dist_norm_field_name = f"lower_dist_norm_{self.length}"
-        self.basis_slope_field_name = f"basis_slope_{self.length}"
-        self.basis_slope_norm_field_name = f"basis_slope_norm_{self.length}"
-        self.upper_slope_field_name = f"upper_slope_{self.length}"
-        self.upper_slope_norm_field_name = f"upper_slope_norm_{self.length}"
-        self.lower_slope_field_name = f"lower_slope_{self.length}"
-        self.lower_slope_norm_field_name = f"lower_slope_norm_{self.length}"
+        self.band_width_field_name = f"BB_band_width_{self.length}"
+        self.band_width_norm_field_name = f"BB_band_width_norm_{self.length}"
+        self.price_band_pos_field_name = f"BB_price_band_pos_{self.length}"
+        self.price_band_pos_norm_field_name = f"BB_price_band_pos_norm_{self.length}"
+        self.upper_dist_field_name = f"BB_upper_dist_{self.length}"
+        self.upper_dist_norm_field_name = f"BB_upper_dist_norm_{self.length}"
+        self.lower_dist_field_name = f"BB_lower_dist_{self.length}"
+        self.lower_dist_norm_field_name = f"BB_lower_dist_norm_{self.length}"
+        self.basis_slope_field_name = f"BB_basis_slope_{self.length}"
+        self.basis_slope_norm_field_name = f"BB_basis_slope_norm_{self.length}"
+        self.upper_slope_field_name = f"BB_upper_slope_{self.length}"
+        self.upper_slope_norm_field_name = f"BB_upper_slope_norm_{self.length}"
+        self.lower_slope_field_name = f"BB_lower_slope_{self.length}"
+        self.lower_slope_norm_field_name = f"BB_lower_slope_norm_{self.length}"
 
         # Dictionary to store normalization parameters
         self.normalization_params = {}
@@ -193,107 +195,115 @@ class BollingerBandsProcessor:
         """
         Calculate base Bollinger Bands indicators
         """
-        # Calculate Bollinger Bands indicators
-        signals = self._generate_signals(df['close'])
-        df[self.basis_field_name] = signals['basis']
-        df[self.upper_band_field_name] = signals['upper_band']
-        df[self.lower_band_field_name] = signals['lower_band']
+        try:
+            # Calculate Bollinger Bands indicators
+            signals = self._generate_signals(df['close'])
+            df[self.basis_field_name] = signals['basis']
+            df[self.upper_band_field_name] = signals['upper_band']
+            df[self.lower_band_field_name] = signals['lower_band']
 
-        # Generate signal field for trend identification
-        df[self.signal_field_name] = "None"
+            # Generate signal field for trend identification
+            df[self.signal_field_name] = 0
 
-        # Identify Bollinger Band Squeeze Exit (SE) and Lower Exit (LE) signals
-        for i in range(self.length + 1, len(df)):
-            current_close = df['close'].iloc[i]
-            prev_close = df['close'].iloc[i - 1]
-            prev_prev_close = df['close'].iloc[i - 2]
+            # Identify Bollinger Band Squeeze Exit (SE) and Lower Exit (LE) signals
+            for i in range(self.length + 1, len(df)):
+                current_close = df['close'].iloc[i]
+                prev_close = df['close'].iloc[i - 1]
+                prev_prev_close = df['close'].iloc[i - 2]
 
-            current_upper = df[self.upper_band_field_name].iloc[i]
-            prev_upper = df[self.upper_band_field_name].iloc[i - 1]
-            prev_prev_upper = df[self.upper_band_field_name].iloc[i - 2]
+                current_upper = df[self.upper_band_field_name].iloc[i]
+                prev_upper = df[self.upper_band_field_name].iloc[i - 1]
+                prev_prev_upper = df[self.upper_band_field_name].iloc[i - 2]
 
-            current_lower = df[self.lower_band_field_name].iloc[i]
-            prev_lower = df[self.lower_band_field_name].iloc[i - 1]
-            prev_prev_lower = df[self.lower_band_field_name].iloc[i - 2]
+                current_lower = df[self.lower_band_field_name].iloc[i]
+                prev_lower = df[self.lower_band_field_name].iloc[i - 1]
+                prev_prev_lower = df[self.lower_band_field_name].iloc[i - 2]
 
-            # Check for Squeeze Exit (price crossing below upper band)
-            if prev_close < prev_upper and prev_prev_close >= prev_prev_upper:
-                prev_signal = df[self.signal_field_name].iloc[i - 1]
-                if prev_signal != "BBandSE":
-                    df.loc[df.index[i], self.signal_field_name] = "BBandSE"
+                # Check for Squeeze Exit (price crossing below upper band) "BBandSE"
+                if prev_close < prev_upper and prev_prev_close >= prev_prev_upper:
+                    prev_signal = df[self.signal_field_name].iloc[i - 1]
+                    if prev_signal != 1:
+                        df.loc[df.index[i], self.signal_field_name] = 1
 
-            # Check for Lower Exit (price crossing above lower band)
-            elif prev_close > prev_lower and prev_prev_close <= prev_prev_lower:
-                prev_signal = df[self.signal_field_name].iloc[i - 1]
-                if prev_signal != "BBandLE":
-                    df.loc[df.index[i], self.signal_field_name] = "BBandLE"
+                # Check for Lower Exit (price crossing above lower band) "BBandLE"
+                elif prev_close > prev_lower and prev_prev_close <= prev_prev_lower:
+                    prev_signal = df[self.signal_field_name].iloc[i - 1]
+                    if prev_signal != -1:
+                        df.loc[df.index[i], self.signal_field_name] = -1
 
-        # Remove the first signal to match original function behavior
-        first_signal_idx = df[df[self.signal_field_name] != "None"].index.min()
-        if first_signal_idx is not None:
-            df.loc[first_signal_idx, self.signal_field_name] = "None"
+            # Remove the first signal to match original function behavior
+            first_signal_idx = df[df[self.signal_field_name] != 0].index.min()
+            if first_signal_idx != 0:
+                df.loc[first_signal_idx, self.signal_field_name] = 0
 
-        return df
+            return df
+        except Exception as e:
+            print(f"Error BollingerBandsProcessor: during calculate_bollinger_values: {str(e)}")
+            sys.exit(2)
 
     def calculate_enhanced_features(self, df):
         """
         Calculate enhanced Bollinger Bands features with first-level normalization
         """
-        # 1. Band Width: Width between bands as percentage of basis
-        df[self.band_width_field_name] = (df[self.upper_band_field_name] - df[self.lower_band_field_name]) / df[
-            self.basis_field_name].replace(0, np.nan) * 100
+        try:
+            # 1. Band Width: Width between bands as percentage of basis
+            df[self.band_width_field_name] = (df[self.upper_band_field_name] - df[self.lower_band_field_name]) / df[
+                self.basis_field_name].replace(0, np.nan) * 100
 
-        # 2. Price Position: Where price is within the bands (0 = lower band, 1 = upper band)
-        band_diff = df[self.upper_band_field_name] - df[self.lower_band_field_name]
-        df[self.price_band_pos_field_name] = (df['close'] - df[self.lower_band_field_name]) / band_diff.replace(0,
-                                                                                                                np.nan)
-        # Clip to handle cases where price is outside bands
-        df[self.price_band_pos_field_name] = df[self.price_band_pos_field_name].clip(0, 1)
+            # 2. Price Position: Where price is within the bands (0 = lower band, 1 = upper band)
+            band_diff = df[self.upper_band_field_name] - df[self.lower_band_field_name]
+            df[self.price_band_pos_field_name] = (df['close'] - df[self.lower_band_field_name]) / band_diff.replace(0,
+                                                                                                                    np.nan)
+            # Clip to handle cases where price is outside bands
+            df[self.price_band_pos_field_name] = df[self.price_band_pos_field_name].clip(0, 1)
 
-        # 3. Distance from Upper Band: Percentage distance from price to upper band
-        df[self.upper_dist_field_name] = (df[self.upper_band_field_name] - df['close']) / df['close'].replace(0,
-                                                                                                              np.nan) * 100
+            # 3. Distance from Upper Band: Percentage distance from price to upper band
+            df[self.upper_dist_field_name] = (df[self.upper_band_field_name] - df['close']) / df['close'].replace(0,
+                                                                                                                  np.nan) * 100
 
-        # 4. Distance from Lower Band: Percentage distance from price to lower band
-        df[self.lower_dist_field_name] = (df['close'] - df[self.lower_band_field_name]) / df['close'].replace(0,
-                                                                                                              np.nan) * 100
+            # 4. Distance from Lower Band: Percentage distance from price to lower band
+            df[self.lower_dist_field_name] = (df['close'] - df[self.lower_band_field_name]) / df['close'].replace(0,
+                                                                                                                  np.nan) * 100
 
-        # 5. Calculate slopes for bands over specified period
-        # Initialize slope columns with zeros
-        df[self.basis_slope_field_name] = 0.0
-        df[self.upper_slope_field_name] = 0.0
-        df[self.lower_slope_field_name] = 0.0
+            # 5. Calculate slopes for bands over specified period
+            # Initialize slope columns with zeros
+            df[self.basis_slope_field_name] = 0.0
+            df[self.upper_slope_field_name] = 0.0
+            df[self.lower_slope_field_name] = 0.0
 
-        # Calculate slopes from row i-slope_period to row i
-        for i in range(self.slope_period, len(df)):
-            # Basis slope (percentage change over period)
-            denom = df[self.basis_field_name].iloc[i - self.slope_period]
-            if denom != 0 and not pd.isna(denom):
-                df.loc[df.index[i], self.basis_slope_field_name] = (
-                        (df[self.basis_field_name].iloc[i] - denom) /
-                        abs(denom) * 100
-                )
+            # Calculate slopes from row i-slope_period to row i
+            for i in range(self.slope_period, len(df)):
+                # Basis slope (percentage change over period)
+                denom = df[self.basis_field_name].iloc[i - self.slope_period]
+                if denom != 0 and not pd.isna(denom):
+                    df.loc[df.index[i], self.basis_slope_field_name] = (
+                            (df[self.basis_field_name].iloc[i] - denom) /
+                            abs(denom) * 100
+                    )
 
-            # Upper band slope
-            denom = df[self.upper_band_field_name].iloc[i - self.slope_period]
-            if denom != 0 and not pd.isna(denom):
-                df.loc[df.index[i], self.upper_slope_field_name] = (
-                        (df[self.upper_band_field_name].iloc[i] - denom) /
-                        abs(denom) * 100
-                )
+                # Upper band slope
+                denom = df[self.upper_band_field_name].iloc[i - self.slope_period]
+                if denom != 0 and not pd.isna(denom):
+                    df.loc[df.index[i], self.upper_slope_field_name] = (
+                            (df[self.upper_band_field_name].iloc[i] - denom) /
+                            abs(denom) * 100
+                    )
 
-            # Lower band slope
-            denom = df[self.lower_band_field_name].iloc[i - self.slope_period]
-            if denom != 0 and not pd.isna(denom):
-                df.loc[df.index[i], self.lower_slope_field_name] = (
-                        (df[self.lower_band_field_name].iloc[i] - denom) /
-                        abs(denom) * 100
-                )
+                # Lower band slope
+                denom = df[self.lower_band_field_name].iloc[i - self.slope_period]
+                if denom != 0 and not pd.isna(denom):
+                    df.loc[df.index[i], self.lower_slope_field_name] = (
+                            (df[self.lower_band_field_name].iloc[i] - denom) /
+                            abs(denom) * 100
+                    )
 
-        # Replace any remaining NaN values with 0 for stability
-        df = df.fillna(0)
+            # Replace any remaining NaN values with 0 for stability
+            df = df.fillna(0)
 
-        return df
+            return df
+        except Exception as e:
+            print(f"Error BollingerBandsProcessor: during calculate_enhanced_features: {str(e)}")
+            sys.exit(2)
 
     def fit_normalization_params(self, df, symbol, interval):
         """
