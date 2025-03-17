@@ -53,10 +53,10 @@ class BinanceHistoricalDataFetcher:
                 api_key=self.config.API_KEY,
                 api_secret=self.config.API_SECRET,
                 exchange="binance.com-futures",
-                socks5_proxy_server=self.socks5_proxy,
-                socks5_proxy_user=None,
-                socks5_proxy_pass=None,
-                socks5_proxy_ssl_verification=True
+                # socks5_proxy_server=self.socks5_proxy,
+                # socks5_proxy_user=None,
+                # socks5_proxy_pass=None,
+                # socks5_proxy_ssl_verification=True
             )
         str_data_dir = exchange + "_" + "historical_data"
         self.data_dir = Path(str_data_dir)
