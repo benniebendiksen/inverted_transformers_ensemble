@@ -436,7 +436,7 @@ def train_transformer_model(sequence_datasets):
 if __name__ == "__main__":
     # Configuration. symbols and intervals can be extended for multi-symbol and multi-interval processing
     symbols = ["BTCUSDT"]
-    intervals = ["12h"]
+    intervals = ["6h"]
     data_directory = "binance_futures_historical_data"
 
     # Create data directory if it doesn't exist
