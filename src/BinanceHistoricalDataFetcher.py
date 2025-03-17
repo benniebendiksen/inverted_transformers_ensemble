@@ -710,11 +710,13 @@ class BinanceHistoricalDataFetcher:
     def save_data_backwards(self, df: pd.DataFrame) -> None:
         """Save the DataFrame to a CSV file while maintaining index consistency"""
         filename = self.data_dir / f"{self.symbol.lower()}_{self.interval}_historical.csv"
+        print(f"Saving {len(df)} records to CSV at {filename}")
         df.sort_index(inplace=True)
         self.counter += 1
 
         try:
             if os.path.exists(filename):
+                print(f"Loading existing data from {filename}")
                 # Load existing CSV and ensure index is datetime
                 existing_df = pd.read_csv(filename, index_col=0)
 
