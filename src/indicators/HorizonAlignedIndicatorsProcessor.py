@@ -209,6 +209,13 @@ class HorizonAlignedIndicatorsProcessor:
                 prefix_2x = f"HORIZON_ALIGNED_MA_{period_2x}"
                 prefix_4x = f"HORIZON_ALIGNED_MA_{period_4x}"
 
+                # ===== NEW FEATURE: PERCENT PRICE CHANGE =====
+                # Calculate percent change between current price and price 'period' steps ago
+                df[f'{prefix}_PRICE_PCT_CHANGE'] = ((df['close'] / df['close'].shift(period)) - 1) * 100
+
+                # Also calculate the absolute price change
+                df[f'{prefix}_PRICE_ABS_CHANGE'] = df['close'] - df['close'].shift(period)
+
                 # ===== Base Period Moving Averages =====
                 # Simple Moving Average (SMA)
                 df[f'{prefix}_SMA'] = df['close'].rolling(window=period).mean()
@@ -377,6 +384,12 @@ class HorizonAlignedIndicatorsProcessor:
                 # Distance from current price to regression line (percentage)
                 df[f'{prefix}_LR_DIST'] = (df['close'] - df[f'{prefix}_LR_VALUE']) / df['close'] * 100
 
+                # Add the new price change fields to the feature list
+                self.moving_average_fields.extend([
+                    f'{prefix}_PRICE_PCT_CHANGE',
+                    f'{prefix}_PRICE_ABS_CHANGE'
+                ])
+
                 # Add regression fields to list
                 self.moving_average_fields.extend([
                     f'{prefix}_LR_SLOPE', f'{prefix}_LR_INTERCEPT', f'{prefix}_LR_VALUE',
@@ -413,142 +426,6 @@ class HorizonAlignedIndicatorsProcessor:
         except Exception as e:
             print(f"Error in calculate_moving_averages_and_regression: {str(e)}")
             return df
-
-    # def calculate_moving_averages_and_regression(self, df):
-    #     """
-    #     Calculate various moving averages and linear regression estimates aligned with forecast horizon
-    #
-    #     Args:
-    #         df: DataFrame with price data
-    #
-    #     Returns:
-    #         DataFrame with moving average and regression indicators added
-    #     """
-    #     # Reset moving average fields list
-    #     self.moving_average_fields = []
-    #     try:
-    #         # Calculate moving averages for each period
-    #         for period in self.periods:
-    #             prefix = f"HORIZON_ALIGNED_MA_{period}"
-    #
-    #             # Simple Moving Average (SMA)
-    #             df[f'{prefix}_SMA'] = df['close'].rolling(window=period).mean()
-    #
-    #             # Exponential Moving Average (EMA)
-    #             df[f'{prefix}_EMA'] = df['close'].ewm(span=period, adjust=False).mean()
-    #
-    #             # Weighted Moving Average (WMA)
-    #             weights = np.arange(1, period + 1)
-    #             df[f'{prefix}_WMA'] = df['close'].rolling(window=period).apply(
-    #                 lambda x: np.sum(weights * x) / weights.sum(), raw=True
-    #             )
-    #
-    #             # Hull Moving Average (HMA)
-    #             wma_half_period = df['close'].rolling(window=period // 2).apply(
-    #                 lambda x: np.sum(np.arange(1, len(x) + 1) * x) / np.sum(np.arange(1, len(x) + 1)), raw=True
-    #             )
-    #             wma_full_period = df['close'].rolling(window=period).apply(
-    #                 lambda x: np.sum(np.arange(1, len(x) + 1) * x) / np.sum(np.arange(1, len(x) + 1)), raw=True
-    #             )
-    #             df[f'{prefix}_HMA'] = (2 * wma_half_period - wma_full_period).rolling(window=int(np.sqrt(period))).mean()
-    #
-    #             # Distance from price to moving averages (percentage)
-    #             df[f'{prefix}_SMA_DIST'] = (df['close'] - df[f'{prefix}_SMA']) / df['close'] * 100
-    #             df[f'{prefix}_EMA_DIST'] = (df['close'] - df[f'{prefix}_EMA']) / df['close'] * 100
-    #
-    #             # SMA-EMA spread (percentage)
-    #             df[f'{prefix}_SPREAD'] = (df[f'{prefix}_SMA'] - df[f'{prefix}_EMA']) / df[f'{prefix}_SMA'] * 100
-    #
-    #             # --- Linear Regression Features ---
-    #
-    #             # Calculate slope directly (returns scalar)
-    #             def calc_slope(x):
-    #                 if len(x) < 2:
-    #                     return 0
-    #                 # Handle both Series and ndarray input
-    #                 y = x if isinstance(x, np.ndarray) else x.values
-    #                 x_vals = np.arange(len(y))
-    #                 slope, _ = np.polyfit(x_vals, y, 1)
-    #                 return slope
-    #
-    #             # Calculate intercept directly (returns scalar)
-    #             def calc_intercept(x):
-    #                 if len(x) < 2:
-    #                     # Handle both Series and ndarray input for the initial value
-    #                     return x[0] if isinstance(x, np.ndarray) else (x.iloc[0] if len(x) > 0 else 0)
-    #                 y = x if isinstance(x, np.ndarray) else x.values
-    #                 x_vals = np.arange(len(y))
-    #                 _, intercept = np.polyfit(x_vals, y, 1)
-    #                 return intercept
-    #
-    #             # Apply rolling linear regression and extract parameters directly
-    #             df[f'{prefix}_LR_SLOPE'] = df['close'].rolling(window=period).apply(calc_slope, raw=False)
-    #             df[f'{prefix}_LR_INTERCEPT'] = df['close'].rolling(window=period).apply(calc_intercept, raw=False)
-    #
-    #             # Calculate the linear regression value at the current point
-    #             df[f'{prefix}_LR_VALUE'] = df[f'{prefix}_LR_INTERCEPT'] + df[f'{prefix}_LR_SLOPE'] * (period - 1)
-    #
-    #             # Calculate the forecast value for the next forecast_steps
-    #             df[f'{prefix}_LR_FORECAST'] = df[f'{prefix}_LR_INTERCEPT'] + df[f'{prefix}_LR_SLOPE'] * (
-    #                     period - 1 + self.forecast_steps)
-    #
-    #             # Calculate expected percentage change based on linear regression
-    #             df[f'{prefix}_LR_CHANGE_PCT'] = (df[f'{prefix}_LR_FORECAST'] - df['close']) / df['close'] * 100
-    #
-    #             # Calculate R-squared to measure trend strength
-    #             def calc_rsquared(x):
-    #                 if len(x) < 2:
-    #                     return 0
-    #                 # When raw=True, x is already a numpy array
-    #                 # When raw=False, x is a pandas Series and needs .values
-    #                 y = x if isinstance(x, np.ndarray) else x.values
-    #                 x_vals = np.arange(len(y))
-    #                 slope, intercept = np.polyfit(x_vals, y, 1)
-    #                 y_pred = slope * x_vals + intercept
-    #                 ss_total = np.sum((y - np.mean(y)) ** 2)
-    #                 ss_residual = np.sum((y - y_pred) ** 2)
-    #                 return 1 - (ss_residual / ss_total) if ss_total != 0 else 0
-    #
-    #             df[f'{prefix}_LR_R2'] = df['close'].rolling(window=period).apply(
-    #                 calc_rsquared, raw=True
-    #             )
-    #
-    #             # Direction of the trend (1 for up, -1 for down, 0 for flat)
-    #             df[f'{prefix}_LR_DIRECTION'] = np.sign(df[f'{prefix}_LR_SLOPE'])
-    #
-    #             # Trend acceleration (change in slope)
-    #             df[f'{prefix}_LR_ACCEL'] = df[f'{prefix}_LR_SLOPE'].diff()
-    #
-    #             # Distance from current price to regression line (percentage)
-    #             df[f'{prefix}_LR_DIST'] = (df['close'] - df[f'{prefix}_LR_VALUE']) / df['close'] * 100
-    #
-    #             # Add regression fields to list
-    #             self.moving_average_fields.extend([
-    #                 f'{prefix}_LR_SLOPE', f'{prefix}_LR_INTERCEPT', f'{prefix}_LR_VALUE',
-    #                 f'{prefix}_LR_FORECAST', f'{prefix}_LR_CHANGE_PCT', f'{prefix}_LR_R2',
-    #                 f'{prefix}_LR_DIRECTION', f'{prefix}_LR_ACCEL', f'{prefix}_LR_DIST'
-    #             ])
-    #
-    #             # Add original fields to list
-    #             self.moving_average_fields.extend([
-    #                 f'{prefix}_SMA', f'{prefix}_EMA', f'{prefix}_WMA', f'{prefix}_HMA',
-    #                 f'{prefix}_SMA_DIST', f'{prefix}_EMA_DIST', f'{prefix}_SPREAD'
-    #             ])
-    #
-    #             # Calculate crossovers
-    #             df[f'{prefix}_CROSS'] = 0
-    #             # Price crossing SMA
-    #             df.loc[(df['close'] > df[f'{prefix}_SMA']) & (df['close'].shift(1) <= df[f'{prefix}_SMA'].shift(1)),
-    #             f'{prefix}_CROSS'] = 1  # Bullish
-    #             df.loc[(df['close'] < df[f'{prefix}_SMA']) & (df['close'].shift(1) >= df[f'{prefix}_SMA'].shift(1)),
-    #             f'{prefix}_CROSS'] = -1  # Bearish
-    #
-    #             self.moving_average_fields.append(f'{prefix}_CROSS')
-    #
-    #         return df
-    #     except Exception as e:
-    #         print(f"Error HorizonAlignedIndicatorsProcessor: during calculate_moving_averages_and_regression: {str(e)}")
-    #         sys.exit(2)
 
     def calculate_bands(self, df):
         """
@@ -641,11 +518,11 @@ class HorizonAlignedIndicatorsProcessor:
 
                 # Moving Average Convergence Divergence (MACD) adjusted to forecast horizon
                 # Use period as slow EMA and period/2 as fast EMA
-                fast_ema = df['close'].ewm(span=period // 2, adjust=False).mean()
-                slow_ema = df['close'].ewm(span=period, adjust=False).mean()
-                df[f'{prefix}_MACD'] = fast_ema - slow_ema
-                df[f'{prefix}_SIGNAL'] = df[f'{prefix}_MACD'].ewm(span=period // 4, adjust=False).mean()
-                df[f'{prefix}_HIST'] = df[f'{prefix}_MACD'] - df[f'{prefix}_SIGNAL']
+                # fast_ema = df['close'].ewm(span=period // 2, adjust=False).mean()
+                # slow_ema = df['close'].ewm(span=period, adjust=False).mean()
+                # df[f'{prefix}_MACD'] = fast_ema - slow_ema
+                # df[f'{prefix}_SIGNAL'] = df[f'{prefix}_MACD'].ewm(span=period // 4, adjust=False).mean()
+                # df[f'{prefix}_HIST'] = df[f'{prefix}_MACD'] - df[f'{prefix}_SIGNAL']
 
                 # Relative Strength Index (RSI) for the specific period
                 delta = df['close'].diff()

@@ -7,7 +7,17 @@
 .env
 .idea/workspace.xml
 __pycache__/
-# data files
-binance_us_historical_data/btcusdc_15m_historical.csv
-btcusdc_pca_components_30.csv
-btcusdc_pca_components_44.csv
+# data directories
+binance_us_historical_data/
+binance_futures_historical_data/
+
+# macOS system files
+.DS_Store
+
+# R environment files
+.RData
+.Rhistory
+*.rds
+*.pdf
+
+*.pyc

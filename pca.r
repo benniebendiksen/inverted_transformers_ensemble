@@ -1,10 +1,12 @@
-# Optimized PCA Analysis and Export for Cryptocurrency Time Series
+# PCA Analysis and Export for Cryptocurrency Time Series with Proper Train/Val/Test Split
 library(readr)
 library(tidyverse)
 library(stats)
 
 # Set the file path
-file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_us_historical_data/btcusdc_15m_historical.csv"
+# file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdc_12h_historical.csv"
+file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_us_historical_data/btcusdc_12h_historical.csv"
+
 
 #===============================================================================
 # Data Loading and Preprocessing Functions
@@ -23,16 +25,71 @@ load_data <- function(file_path) {
   # Check for infinite values and replace with NA
   df <- df %>% mutate_all(~ifelse(is.infinite(.), NA, .))
   
-  # Handle NA values - replace with column medians
-  df <- df %>% mutate_all(~ifelse(is.na(.), median(., na.rm = TRUE), .))
+  return(df)
+}
+
+# Function to split data chronologically with proper train/val/test splits
+split_data_chronologically <- function(df, train_ratio = 0.85, valid_ratio = 0.10, test_ratio = 0.05) {
+  # Ensure data is ordered chronologically
+  if("timestamp" %in% colnames(df)) {
+    df <- df %>% arrange(timestamp)
+  }
+  
+  # Calculate split indices
+  n <- nrow(df)
+  n_train <- floor(n * train_ratio)
+  n_valid <- floor(n * valid_ratio)
+  n_test <- n - n_train - n_valid  # Remainder goes to test
+  
+  # Create the splits
+  train_idx <- 1:n_train
+  valid_idx <- (n_train + 1):(n_train + n_valid)
+  test_idx <- (n_train + n_valid + 1):n
+  
+  # Create split indicators
+  split_indicators <- rep(NA, n)
+  split_indicators[train_idx] <- "train"
+  split_indicators[valid_idx] <- "val"
+  split_indicators[test_idx] <- "test"
+  
+  # Add split column to the dataframe
+  df$split <- split_indicators
+  
+  cat("Data split chronologically with distinct validation and test sets:\n")
+  cat("  Training set:   ", length(train_idx), "rows (", train_ratio*100, "%)\n")
+  cat("  Validation set: ", length(valid_idx), "rows (", valid_ratio*100, "%)\n")
+  cat("  Test set:       ", length(test_idx), "rows (", test_ratio*100, "%)\n")
+  
+  return(list(
+    data = df,
+    train_idx = train_idx,
+    valid_idx = valid_idx,
+    test_idx = test_idx
+  ))
+}
+
+# Function to handle NA values - fit on training, apply to all
+handle_missing_values <- function(df, train_idx) {
+  # Calculate medians from training data only
+  train_medians <- df[train_idx, ] %>% 
+    select_if(is.numeric) %>% 
+    summarise(across(everything(), ~median(., na.rm = TRUE)))
+  
+  # Apply medians to all data
+  for(col in names(train_medians)) {
+    if(col %in% colnames(df)) {
+      df[[col]] <- ifelse(is.na(df[[col]]), train_medians[[col]], df[[col]])
+    }
+  }
   
   return(df)
 }
 
-# Function to identify and remove highly correlated features
-remove_highly_correlated <- function(df, threshold = 0.95) {
-  # Calculate the correlation matrix
-  cor_matrix <- cor(df %>% select_if(is.numeric), use = "complete.obs")
+# Function to identify and remove highly correlated features - using only training data
+remove_highly_correlated <- function(df, train_idx, threshold = 0.95) {
+  # Calculate the correlation matrix using only training data
+  train_data <- df[train_idx, ] %>% select_if(is.numeric)
+  cor_matrix <- cor(train_data, use = "complete.obs")
   
   # Find highly correlated pairs
   high_cor <- which(abs(cor_matrix) > threshold & abs(cor_matrix) < 1, arr.ind = TRUE)
@@ -48,7 +105,7 @@ remove_highly_correlated <- function(df, threshold = 0.95) {
   cor_pairs <- cor_pairs %>% arrange(desc(abs(cor)))
   
   # Print top correlated pairs
-  cat("Top highly correlated pairs:\n")
+  cat("Top highly correlated pairs (based on training data only):\n")
   print(head(cor_pairs, 10))
   
   # Identify columns to remove (simplified approach)
@@ -63,35 +120,35 @@ remove_highly_correlated <- function(df, threshold = 0.95) {
     }
   }
   
-  cat("\nRemoving", length(cols_to_remove), "highly correlated features\n")
+  cat("\nRemoving", length(cols_to_remove), "highly correlated features (identified from training data only)\n")
   
-  # Return data without highly correlated columns
+  # Return data without highly correlated columns (applied to all data)
   return(list(
     data = df %>% select(-one_of(cols_to_remove)),
     removed = cols_to_remove
   ))
 }
 
-# Function to identify and remove zero variance columns
-remove_zero_variance <- function(df) {
-  # Calculate variance for all numeric columns
-  numeric_df <- df %>% select_if(is.numeric)
-  variances <- apply(numeric_df, 2, var)
+# Function to identify and remove zero variance columns - using only training data
+remove_zero_variance <- function(df, train_idx) {
+  # Calculate variance for all numeric columns in training data only
+  train_data <- df[train_idx, ] %>% select_if(is.numeric)
+  variances <- apply(train_data, 2, var)
   
   # Identify columns with near-zero variance
   zero_var_cols <- names(which(variances < 1e-10))
   
   if(length(zero_var_cols) > 0) {
-    cat("\nRemoving", length(zero_var_cols), "columns with zero or near-zero variance:\n")
+    cat("\nRemoving", length(zero_var_cols), "columns with zero or near-zero variance in training data:\n")
     print(zero_var_cols)
     
-    # Return data without zero variance columns
+    # Return data without zero variance columns (applied to all data)
     return(list(
       data = df %>% select(-one_of(zero_var_cols)),
       removed = zero_var_cols
     ))
   } else {
-    cat("\nNo zero variance columns found.\n")
+    cat("\nNo zero variance columns found in training data.\n")
     return(list(
       data = df,
       removed = character(0)
@@ -100,33 +157,35 @@ remove_zero_variance <- function(df) {
 }
 
 #===============================================================================
-# PCA Analysis Function
+# PCA Analysis Function - Modified to Respect Train/Val/Test Split
 #===============================================================================
 
-# Preprocess and prepare data for PCA
-preprocess_for_pca <- function(df) {
+# Preprocess and prepare data for PCA - now respecting data splits
+preprocess_for_pca <- function(df, train_idx) {
   # Extract and save non-numeric columns we want to keep
-  preserved_cols <- NULL
-  if ("timestamp" %in% colnames(df)) {
-    preserved_cols$timestamp <- df$timestamp
-    df <- df %>% select(-timestamp)
+  preserved_cols <- list()
+  preserved_vars <- c("timestamp", "close", "split")
+  
+  for(var in preserved_vars) {
+    if(var %in% colnames(df)) {
+      preserved_cols[[var]] <- df[[var]]
+      df <- df %>% select(-all_of(var))
+    }
   }
   
-  if ("close" %in% colnames(df)) {
-    preserved_cols$close <- df$close
-    df <- df %>% select(-close)
-  }
+  # Handle missing values - fit on training, apply to all
+  df <- handle_missing_values(df, train_idx)
   
-  # Remove highly correlated features
-  cat("\n=== REMOVING HIGHLY CORRELATED FEATURES ===\n")
-  reduced <- remove_highly_correlated(df)
+  # Remove highly correlated features - based on training data only
+  cat("\n=== REMOVING HIGHLY CORRELATED FEATURES (BASED ON TRAINING DATA) ===\n")
+  reduced <- remove_highly_correlated(df, train_idx)
   df_reduced <- reduced$data
   removed_correlated <- reduced$removed
   cat("Dataset reduced to", ncol(df_reduced), "columns\n")
   
-  # Remove zero variance features
-  cat("\n=== REMOVING ZERO VARIANCE FEATURES ===\n")
-  reduced_var <- remove_zero_variance(df_reduced)
+  # Remove zero variance features - based on training data only
+  cat("\n=== REMOVING ZERO VARIANCE FEATURES (BASED ON TRAINING DATA) ===\n")
+  reduced_var <- remove_zero_variance(df_reduced, train_idx)
   df_final <- reduced_var$data
   removed_zero_var <- reduced_var$removed
   cat("Final dataset has", ncol(df_final), "columns\n")
@@ -142,38 +201,42 @@ preprocess_for_pca <- function(df) {
   ))
 }
 
-# Function to perform PCA and analyze variance explained
-analyze_pca_components <- function(processed_data) {
+# Function to perform PCA - fit on training data only, then transform all data
+analyze_pca_components <- function(processed_data, train_idx) {
   # Select only numeric columns
   numeric_df <- processed_data %>% select_if(is.numeric)
   
-  # Standardize the data (center and scale)
-  scaled_data <- scale(numeric_df)
+  # Compute scaling parameters from training data only
+  train_center <- colMeans(numeric_df[train_idx, ], na.rm = TRUE)
+  train_scale <- apply(numeric_df[train_idx, ], 2, sd, na.rm = TRUE)
+  
+  # Handle any zero scale values
+  zero_scale_cols <- names(which(train_scale == 0))
+  if(length(zero_scale_cols) > 0) {
+    cat("\nWarning:", length(zero_scale_cols), "columns have zero standard deviation in training data.\n")
+    cat("These columns will be removed:", paste(zero_scale_cols, collapse=", "), "\n")
+    
+    # Remove problematic columns
+    numeric_df <- numeric_df %>% select(-all_of(zero_scale_cols))
+    
+    # Recalculate scaling parameters
+    train_center <- train_center[!names(train_center) %in% zero_scale_cols]
+    train_scale <- train_scale[!names(train_scale) %in% zero_scale_cols]
+  }
+  
+  # Standardize all data using training parameters
+  scaled_data <- scale(numeric_df, center = train_center, scale = train_scale)
   
   # Store scaling parameters for later use
   scaling_params <- list(
-    center = attr(scaled_data, "scaled:center"),
-    scale = attr(scaled_data, "scaled:scale")
+    center = train_center,
+    scale = train_scale
   )
   
-  # Check for any NaN values after scaling
-  if(any(is.na(scaled_data))) {
-    cat("\nWarning: NaN values found after scaling. This indicates columns with zero variance.\n")
-    # Identify and print problematic columns
-    col_sd <- apply(numeric_df, 2, sd)
-    zero_sd_cols <- names(which(col_sd == 0))
-    cat("Columns with zero standard deviation:", paste(zero_sd_cols, collapse=", "), "\n")
-    
-    # Remove problematic columns from scaled data
-    cols_to_keep <- which(!colnames(numeric_df) %in% zero_sd_cols)
-    scaled_data <- scaled_data[, cols_to_keep]
-    cat("Proceeding with PCA after removing", length(zero_sd_cols), "problematic columns\n")
-  }
+  # Fit PCA on training data only
+  pca_result <- prcomp(scaled_data[train_idx, ], center = FALSE, scale. = FALSE)
   
-  # Perform PCA
-  pca_result <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
-  
-  # Calculate variance explained
+  # Calculate variance explained (based on training data)
   variance <- pca_result$sdev^2
   prop_variance <- variance / sum(variance)
   cum_variance <- cumsum(prop_variance)
@@ -186,7 +249,7 @@ analyze_pca_components <- function(processed_data) {
   )
   
   # Print first 15 PCs
-  cat("\nExplained variance by principal components:\n")
+  cat("\nExplained variance by principal components (based on training data):\n")
   print(head(variance_df, 15))
   
   # Find key variance thresholds
@@ -266,9 +329,13 @@ analyze_pca_components <- function(processed_data) {
   avg_var_n <- sum(prop_variance > mean(prop_variance))
   cat("Average variance criterion:", avg_var_n, "components\n")
   
+  # Now transform all data using the PCA fitted on training data
+  all_transformed <- predict(pca_result, scaled_data)
+  
   # Return variance data and PCA results for further analysis
   return(list(
     pca_result = pca_result,
+    all_transformed = all_transformed,
     scaling_params = scaling_params,
     variance_df = variance_df,
     selected_components = list(
@@ -278,31 +345,44 @@ analyze_pca_components <- function(processed_data) {
       var_90 = if(exists("n_90")) n_90 else NA,
       prop_max = prop_max_n,
       avg_var = avg_var_n
-    )
+    ),
+    removed_cols = if(exists("zero_scale_cols")) zero_scale_cols else character(0)
   ))
 }
 
 #===============================================================================
-# Main Analysis Execution Function
+# Main Analysis Execution Function - With Proper Train/Val/Test Splits
 #===============================================================================
 
-# Main execution - perform full PCA analysis
-run_pca_analysis <- function(file_path) {
+# Main execution - perform full PCA analysis with proper train/val/test splits
+run_pca_analysis <- function(file_path, train_ratio = 0.85, valid_ratio = 0.10, test_ratio = 0.05) {
   # Load data
   cat("Loading data...\n")
   df <- load_data(file_path)
   cat("Dataset loaded:", nrow(df), "rows,", ncol(df), "columns\n")
   
-  # Preprocess data for PCA
-  preprocessed <- preprocess_for_pca(df)
+  # Split data chronologically with proper train/val/test splits
+  cat("\n=== SPLITTING DATA CHRONOLOGICALLY ===\n")
+  split_data <- split_data_chronologically(df, train_ratio, valid_ratio, test_ratio)
+  df_split <- split_data$data
+  train_idx <- split_data$train_idx
+  valid_idx <- split_data$valid_idx
+  test_idx <- split_data$test_idx
   
-  # Run PCA analysis
-  cat("\n=== PCA COMPONENT ANALYSIS ===\n")
-  pca_results <- analyze_pca_components(preprocessed$processed_data)
+  # Preprocess data for PCA - using only training data for fitting
+  cat("\n=== PREPROCESSING DATA (USING TRAIN DATA FOR PARAMETERS) ===\n")
+  preprocessed <- preprocess_for_pca(df_split, train_idx)
+  
+  # Run PCA analysis - fit on training data, transform all
+  cat("\n=== PCA COMPONENT ANALYSIS (FIT ON TRAIN DATA ONLY) ===\n")
+  pca_results <- analyze_pca_components(preprocessed$processed_data, train_idx)
   
   # Store all necessary information for later export
   full_results <- list(
-    raw_data = df,
+    split_data = df_split,
+    train_idx = train_idx,
+    valid_idx = valid_idx,
+    test_idx = test_idx,
     processed_data = preprocessed$processed_data,
     preserved_cols = preprocessed$preserved_cols,
     removed_features = preprocessed$removed,
@@ -310,33 +390,30 @@ run_pca_analysis <- function(file_path) {
   )
   
   # Save the full results for later use (optional)
-  saveRDS(full_results, "pca_full_results.rds")
+  saveRDS(full_results, "pca_full_results_proper_splits.rds")
   
   return(full_results)
 }
 
 #===============================================================================
-# Improved Export Functions
+# Export Functions - With Proper Train/Val/Test Splits
 #===============================================================================
 
-# Export PCA-transformed dataset directly from stored results
+# Export PCA-transformed dataset with proper train/val/test splits
 export_pca_components <- function(results, n_components, output_file = NULL) {
   # Extract necessary data from results
-  pca_model <- results$pca_results$pca_result
+  all_transformed <- results$pca_results$all_transformed
   preserved_cols <- results$preserved_cols
   
-  # Get the PC scores directly from the PCA results
-  pc_scores <- as.data.frame(pca_model$x)
-  
   # Validate n_components
-  max_components <- ncol(pc_scores)
+  max_components <- ncol(all_transformed)
   if (n_components > max_components) {
     warning(paste("n_components exceeds available principal components (", max_components, "). Using max available."))
     n_components <- max_components
   }
   
   # Select desired number of components
-  pc_selected <- pc_scores[, 1:n_components]
+  pc_selected <- as.data.frame(all_transformed[, 1:n_components])
   
   # Add meaningful column names
   colnames(pc_selected) <- paste0("PC", 1:n_components)
@@ -347,13 +424,20 @@ export_pca_components <- function(results, n_components, output_file = NULL) {
   # Add timestamp as first column if it exists
   if (!is.null(preserved_cols$timestamp)) {
     cat("Adding timestamp as first column\n")
-    final_data <- cbind(timestamp = preserved_cols$timestamp, final_data)
+    final_data <- cbind(date = preserved_cols$timestamp, final_data)
+    colnames(final_data)[1] <- "date"  # Rename to match expected format
   }
   
   # Add close price as last column if it exists
   if (!is.null(preserved_cols$close)) {
     cat("Adding close price as last column\n")
     final_data$close <- preserved_cols$close
+  }
+  
+  # Add split column to preserve train/val/test data split information
+  if (!is.null(preserved_cols$split)) {
+    cat("Adding train/validation/test split information\n")
+    final_data$split <- preserved_cols$split
   }
   
   # Define export path
@@ -366,33 +450,40 @@ export_pca_components <- function(results, n_components, output_file = NULL) {
   write_csv(final_data, export_path)
   cat("Successfully exported", n_components, "principal components to:", export_path, "\n")
   
+  # Print summary counts by split
+  if (!is.null(preserved_cols$split)) {
+    split_counts <- table(final_data$split)
+    cat("\nExported data summary by split:\n")
+    print(split_counts)
+  }
+  
   return(final_data)
 }
 
 # Export multiple versions with different component counts
 export_multiple_versions <- function(results, component_counts, base_filename = "btcusdc_pca_components") {
+  exported_datasets <- list()
+  
   for (n in component_counts) {
     output_file <- paste0(base_filename, "_", n, ".csv")
-    export_pca_components(results, n, output_file)
+    exported_datasets[[as.character(n)]] <- export_pca_components(results, n, output_file)
   }
+  
+  return(exported_datasets)
 }
 
 #===============================================================================
-# Script Execution
+# Script Execution with Proper Train/Val/Test Splits
 #===============================================================================
 
-# Run the full analysis
-results <- run_pca_analysis(file_path)
+# Run the full analysis with 85% training, 10% validation, 5% test
+results <- run_pca_analysis(file_path, train_ratio = 0.90, valid_ratio = 0.05, test_ratio = 0.05)
 
-# Export datasets with different numbers of components
+# Export dataset with specified number of components
+# Adjust the number of components based on your PCA results
+# For example, to capture 95% of variance:
+export_pca_components(results, n_components = 53, 
+                      output_file = "btcusdc_pca_components_12h_53_proper_split_2.csv")
 
-# Option 3: 80% variance (approximately 30 components)
-export_pca_components(results, n_components = 30, 
-                      output_file = "btcusdc_pca_components_30.csv")
+cat("\n\nPCA analysis with proper train/validation/test splits complete.\n")
 
-# Option 4: 90% variance (approximately 44 components)
-export_pca_components(results, n_components = 44, 
-                      output_file = "btcusdc_pca_components_44.csv")
-
-# Alternative: Export all versions at once
-# export_multiple_versions(results, c(20, 30, 44))

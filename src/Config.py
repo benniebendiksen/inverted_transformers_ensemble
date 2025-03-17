@@ -30,5 +30,5 @@ class Config(BaseClass):
     BOLL_MULTIPLIER = 2.0
     SLOPE_PERIOD = 4
     # Future Horizon-Aligned PARAMS
-    FORECAST_STEPS = 4
+    FORECAST_STEPS = 2
 
