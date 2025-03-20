@@ -5,7 +5,7 @@ library(stats)
 
 # Set the file path
 # file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdc_12h_historical.csv"
-file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_us_historical_data/btcusdc_12h_historical.csv"
+file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical.csv"
 
 
 #===============================================================================
@@ -477,13 +477,13 @@ export_multiple_versions <- function(results, component_counts, base_filename = 
 #===============================================================================
 
 # Run the full analysis with 85% training, 10% validation, 5% test
-results <- run_pca_analysis(file_path, train_ratio = 0.85, valid_ratio = 0.10, test_ratio = 0.05)
+results <- run_pca_analysis(file_path, train_ratio = 0.86, valid_ratio = 0.07, test_ratio = 0.07)
 
 # Export dataset with specified number of components
 # Adjust the number of components based on your PCA results
 # For example, to capture 95% of variance:
-export_pca_components(results, n_components = 53, 
-                      output_file = "btcusdc_pca_components_12h_53_10_05.csv")
+export_pca_components(results, n_components = 48, 
+                      output_file = "btcusdt_pca_components_12h_48_07_07.csv")
 
 cat("\n\nPCA analysis with proper train/validation/test splits complete.\n")
 
