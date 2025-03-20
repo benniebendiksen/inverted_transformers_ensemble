@@ -518,11 +518,11 @@ class HorizonAlignedIndicatorsProcessor:
 
                 # Moving Average Convergence Divergence (MACD) adjusted to forecast horizon
                 # Use period as slow EMA and period/2 as fast EMA
-                # fast_ema = df['close'].ewm(span=period // 2, adjust=False).mean()
-                # slow_ema = df['close'].ewm(span=period, adjust=False).mean()
-                # df[f'{prefix}_MACD'] = fast_ema - slow_ema
-                # df[f'{prefix}_SIGNAL'] = df[f'{prefix}_MACD'].ewm(span=period // 4, adjust=False).mean()
-                # df[f'{prefix}_HIST'] = df[f'{prefix}_MACD'] - df[f'{prefix}_SIGNAL']
+                fast_ema = df['close'].ewm(span=period // 2, adjust=False).mean()
+                slow_ema = df['close'].ewm(span=period, adjust=False).mean()
+                df[f'{prefix}_MACD'] = fast_ema - slow_ema
+                df[f'{prefix}_SIGNAL'] = df[f'{prefix}_MACD'].ewm(span=period // 4, adjust=False).mean()
+                df[f'{prefix}_HIST'] = df[f'{prefix}_MACD'] - df[f'{prefix}_SIGNAL']
 
                 # Relative Strength Index (RSI) for the specific period
                 delta = df['close'].diff()

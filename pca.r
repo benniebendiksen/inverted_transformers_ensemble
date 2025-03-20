@@ -477,13 +477,13 @@ export_multiple_versions <- function(results, component_counts, base_filename = 
 #===============================================================================
 
 # Run the full analysis with 85% training, 10% validation, 5% test
-results <- run_pca_analysis(file_path, train_ratio = 0.90, valid_ratio = 0.05, test_ratio = 0.05)
+results <- run_pca_analysis(file_path, train_ratio = 0.85, valid_ratio = 0.10, test_ratio = 0.05)
 
 # Export dataset with specified number of components
 # Adjust the number of components based on your PCA results
 # For example, to capture 95% of variance:
 export_pca_components(results, n_components = 53, 
-                      output_file = "btcusdc_pca_components_12h_53_proper_split_2.csv")
+                      output_file = "btcusdc_pca_components_12h_53_10_05.csv")
 
 cat("\n\nPCA analysis with proper train/validation/test splits complete.\n")
 
