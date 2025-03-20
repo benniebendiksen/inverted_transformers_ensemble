@@ -445,7 +445,7 @@ if __name__ == "__main__":
     # 1. Fetch historical data for each symbol and interval
     for symbol in symbols:
         for interval in intervals:
-            get_historical_data(symbol=symbol, interval=interval, exchange="binance_us")
+            get_historical_data(symbol=symbol, interval=interval, exchange="binance_futures")
             # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
 
     # 2. Calculate technical indicators for all symbols and intervals
