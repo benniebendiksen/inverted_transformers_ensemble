@@ -12,7 +12,31 @@ import os
 import json
 from sklearn.model_selection import train_test_split
 from datetime import datetime
+def add_price_directionality(df):
+    """
+    Add a price directionality indicator to the dataframe
+    1 indicates price increase, 0 indicates non-increasing price
 
+    Args:
+        df: DataFrame with historical data
+
+    Returns:
+        DataFrame with added directionality column
+    """
+    print(f"\nAdding price directionality indicator...")
+
+    # Calculate price change
+    df['price_change'] = df['close'].diff()
+
+    # Create directionality indicator (1 for increase, 0 for non-increase)
+    df['direction'] = (df['price_change'] > 0).astype(int)
+
+    # Remove the temporary price_change column
+    df = df.drop('price_change', axis=1)
+
+    print(f"Direction distribution: {df['direction'].value_counts().to_dict()}")
+
+    return df
 
 def get_historical_data(symbol, interval, exchange):
     """
@@ -91,6 +115,7 @@ def get_data_working_forward(symbol, interval, exchange, string_datetime):
         return None
 
 
+# Modify the calculate_indicators function to include the directionality calculation
 def calculate_indicators(directory_name, symbols, intervals):
     """
     Calculate technical indicators for all specified symbols and intervals
@@ -106,6 +131,16 @@ def calculate_indicators(directory_name, symbols, intervals):
     for symbol in symbols:
         for interval in intervals:
             print(f"\nProcessing {symbol} {interval} data with technical indicators...")
+
+            # Load the data file
+            filename = data_dir / f"{symbol.lower()}_{interval}_historical.csv"
+            df = pd.read_csv(filename, index_col=0)
+
+            # Add price directionality indicator before other processing
+            df = add_price_directionality(df)
+
+            # Save the updated dataframe back to CSV
+            df.to_csv(filename)
 
             # Primary MACD processor (12-26-9 standard configuration)
             macd_processor = MACDProcessor(
@@ -435,9 +470,9 @@ def train_transformer_model(sequence_datasets):
 
 if __name__ == "__main__":
     # Configuration. symbols and intervals can be extended for multi-symbol and multi-interval processing
-    symbols = ["BTCUSDT"]
+    symbols = ["BTCUSDC"]
     intervals = ["12h"]
-    data_directory = "binance_futures_historical_data"
+    data_directory = "binance_us_historical_data"
 
     # Create data directory if it doesn't exist
     os.makedirs(data_directory, exist_ok=True)
@@ -445,7 +480,7 @@ if __name__ == "__main__":
     # 1. Fetch historical data for each symbol and interval
     for symbol in symbols:
         for interval in intervals:
-            get_historical_data(symbol=symbol, interval=interval, exchange="binance_futures")
+            get_historical_data(symbol=symbol, interval=interval, exchange="binance_us")
             # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
 
     # 2. Calculate technical indicators for all symbols and intervals
