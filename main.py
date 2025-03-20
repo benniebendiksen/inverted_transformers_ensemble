@@ -470,9 +470,9 @@ def train_transformer_model(sequence_datasets):
 
 if __name__ == "__main__":
     # Configuration. symbols and intervals can be extended for multi-symbol and multi-interval processing
-    symbols = ["BTCUSDC"]
+    symbols = ["BTCUSDT"]
     intervals = ["12h"]
-    data_directory = "binance_us_historical_data"
+    data_directory = "binance_futures_historical_data"
 
     # Create data directory if it doesn't exist
     os.makedirs(data_directory, exist_ok=True)
@@ -480,7 +480,7 @@ if __name__ == "__main__":
     # 1. Fetch historical data for each symbol and interval
     for symbol in symbols:
         for interval in intervals:
-            get_historical_data(symbol=symbol, interval=interval, exchange="binance_us")
+            get_historical_data(symbol=symbol, interval=interval, exchange="binance_futures")
             # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
 
     # 2. Calculate technical indicators for all symbols and intervals
