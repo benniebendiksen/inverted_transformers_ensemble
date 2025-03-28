@@ -1,3 +1,5 @@
+import sys
+
 from src.Config import Config
 from src.BinanceHistoricalDataFetcher import BinanceHistoricalDataFetcher
 from src.indicators.MACDProcessor import MACDProcessor
@@ -48,7 +50,7 @@ def add_price_directionality(df):
     return df
 
 
-def get_historical_data(data_dir, symbol, interval, exchange):
+def get_historical_data(str_data_dir, symbol, interval, exchange):
     """
     Fetch historical data from Binance
 
@@ -77,7 +79,8 @@ def get_historical_data(data_dir, symbol, interval, exchange):
             print("\nSample of data:")
             print(df.tail(10))
 
-            filename = data_dir / f"{symbol.lower()}_{interval}_historical.csv"
+            data_directory = Path(str_data_dir)
+            filename = data_directory / f"{symbol.lower()}_{interval}_historical.csv"
             print(f"get_historical_data: saving file to: {filename}")
             df.to_csv(filename)
 
@@ -88,7 +91,7 @@ def get_historical_data(data_dir, symbol, interval, exchange):
 
     except Exception as e:
         print(f"Error during data collection: {str(e)}")
-        return None
+        sys.exit(1)
 
 
 def get_data_working_forward(symbol, interval, exchange, string_datetime):
@@ -497,7 +500,7 @@ if __name__ == "__main__":
     # 1. Fetch historical data for each symbol and interval
     for symbol in symbols:
         for interval in intervals:
-            get_historical_data(data_dir =data_directory, symbol=symbol, interval=interval, exchange="binance_futures")  # "binance_us"
+            get_historical_data(str_data_dir=data_directory, symbol=symbol, interval=interval, exchange="binance_futures")  # "binance_us"
             # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
 
     # 2. Calculate technical indicators for all symbols and intervals
