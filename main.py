@@ -25,16 +25,19 @@ def add_price_directionality(df):
     Returns:
         DataFrame with added directionality column
     """
-    print(f"\nAdding price directionality indicator...")
+    print(f"Row count at start of add_price_directionality: {len(df)}")
 
     # Calculate price change
     df['price_change'] = df['close'].diff()
+    print(f"Row count after calculating price_change: {len(df)}")
 
     # Create directionality indicator (1 for increase, 0 for non-increase)
     df['direction'] = (df['price_change'] > 0).astype(int)
+    print(f"Row count after creating direction: {len(df)}")
 
     # Remove the temporary price_change column
     df = df.drop('price_change', axis=1)
+    print(f"Row count after dropping price_change: {len(df)}")
 
     print(f"Direction distribution: {df['direction'].value_counts().to_dict()}")
 
