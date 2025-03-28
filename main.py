@@ -29,15 +29,12 @@ def add_price_directionality(df):
 
     # Calculate price change
     df['price_change'] = df['close'].diff()
-    print(f"Row count after calculating price_change: {len(df)}")
 
     # Create directionality indicator (1 for increase, 0 for non-increase)
     df['direction'] = (df['price_change'] > 0).astype(int)
-    print(f"Row count after creating direction: {len(df)}")
 
     # Remove the temporary price_change column
     df = df.drop('price_change', axis=1)
-    print(f"Row count after dropping price_change: {len(df)}")
 
     print(f"Direction distribution: {df['direction'].value_counts().to_dict()}")
 
@@ -51,7 +48,7 @@ def add_price_directionality(df):
     return df
 
 
-def get_historical_data(symbol, interval, exchange):
+def get_historical_data(data_dir, symbol, interval, exchange):
     """
     Fetch historical data from Binance
 
@@ -79,6 +76,11 @@ def get_historical_data(symbol, interval, exchange):
             print(f"Memory usage: {df.memory_usage().sum() / 1024 / 1024:.2f} MB")
             print("\nSample of data:")
             print(df.tail(10))
+
+            filename = data_dir / f"{symbol.lower()}_{interval}_historical.csv"
+            print(f"get_historical_data: saving file to: {filename}")
+            df.to_csv(filename)
+
             return df
         else:
             print("No data collected!")
@@ -147,6 +149,7 @@ def calculate_indicators(directory_name, symbols, intervals):
 
             # Load the data file
             filename = data_dir / f"{symbol.lower()}_{interval}_historical.csv"
+            print(f"calculate_indicators: loading historical dataset from: {filename}")
             df = pd.read_csv(filename, index_col=0)
 
             # Add price directionality indicator before other processing
@@ -494,7 +497,7 @@ if __name__ == "__main__":
     # 1. Fetch historical data for each symbol and interval
     for symbol in symbols:
         for interval in intervals:
-            get_historical_data(symbol=symbol, interval=interval, exchange="binance_futures")  # "binance_us"
+            get_historical_data(data_dir =data_directory, symbol=symbol, interval=interval, exchange="binance_futures")  # "binance_us"
             # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
 
     # 2. Calculate technical indicators for all symbols and intervals
