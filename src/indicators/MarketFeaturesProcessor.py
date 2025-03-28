@@ -107,6 +107,8 @@ class MarketFeaturesProcessor:
         # Read the CSV file
         df = pd.read_csv(filename, index_col=0)
 
+        initial_row_count = len(df)
+
         # Calculate base features
         df = self.calculate_base_features(df)
 
@@ -123,6 +125,9 @@ class MarketFeaturesProcessor:
         # Calculate volume features if enabled
         if self.include_volume and 'volume' in df.columns:
             df = self.calculate_volume_features(df)
+
+        if len(df) != initial_row_count:
+            raise ValueError(f"Row count changed during processing: {initial_row_count} -> {len(df)}")
 
         # Save back to CSV
         df.to_csv(filename)

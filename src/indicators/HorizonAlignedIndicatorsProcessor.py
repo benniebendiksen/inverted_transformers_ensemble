@@ -81,6 +81,8 @@ class HorizonAlignedIndicatorsProcessor:
         # Read the CSV file
         df = pd.read_csv(filename, index_col=0)
 
+        initial_row_count = len(df)
+
         # Calculate virtual candle features first (other indicators may use them)
         if self.include_virtual_candles:
             df = self.calculate_virtual_candles(df)
@@ -94,6 +96,9 @@ class HorizonAlignedIndicatorsProcessor:
 
         if self.include_momentum:
             df = self.calculate_momentum(df)
+
+        if len(df) != initial_row_count:
+            raise ValueError(f"Row count changed during processing: {initial_row_count} -> {len(df)}")
 
         # Save back to CSV
         df.to_csv(filename)

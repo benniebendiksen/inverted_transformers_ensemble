@@ -164,7 +164,9 @@ remove_zero_variance <- function(df, train_idx) {
 preprocess_for_pca <- function(df, train_idx) {
   # Extract and save non-numeric columns we want to keep
   preserved_cols <- list()
-  preserved_vars <- c("timestamp", "close", "split")
+  
+  # Updated list of variables to preserve - now includes 'direction'
+  preserved_vars <- c("timestamp", "close", "direction", "split")
   
   for(var in preserved_vars) {
     if(var %in% colnames(df)) {
@@ -428,6 +430,12 @@ export_pca_components <- function(results, n_components, output_file = NULL) {
     colnames(final_data)[1] <- "date"  # Rename to match expected format
   }
   
+  # Add direction column if it exists
+  if (!is.null(preserved_cols$direction)) {
+    cat("Adding price direction column\n")
+    final_data$direction <- preserved_cols$direction
+  }
+  
   # Add close price as last column if it exists
   if (!is.null(preserved_cols$close)) {
     cat("Adding close price as last column\n")
@@ -457,6 +465,14 @@ export_pca_components <- function(results, n_components, output_file = NULL) {
     print(split_counts)
   }
   
+  # Print direction distribution if available
+  if (!is.null(preserved_cols$direction)) {
+    direction_counts <- table(final_data$direction)
+    cat("\nDirection distribution in exported data:\n")
+    print(direction_counts)
+    cat("Percentage up:", round(direction_counts["1"]/sum(direction_counts)*100, 2), "%\n")
+  }
+  
   return(final_data)
 }
 
@@ -477,13 +493,13 @@ export_multiple_versions <- function(results, component_counts, base_filename = 
 #===============================================================================
 
 # Run the full analysis with 85% training, 10% validation, 5% test
-results <- run_pca_analysis(file_path, train_ratio = 0.90, valid_ratio = 0.05, test_ratio = 0.05)
+results <- run_pca_analysis(file_path, train_ratio = 0.88, valid_ratio = 0.07, test_ratio = 0.05)
 
 # Export dataset with specified number of components
 # Adjust the number of components based on your PCA results
 # For example, to capture 95% of variance:
-export_pca_components(results, n_components = 48, 
-                      output_file = "btcusdt_pca_components_12h_48_05_05.csv")
+export_pca_components(results, n_components = 60, 
+                      output_file = "btcusdt_pca_components_12h_60_07_05.csv")
 
 cat("\n\nPCA analysis with proper train/validation/test splits complete.\n")
 

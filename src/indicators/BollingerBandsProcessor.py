@@ -73,11 +73,16 @@ class BollingerBandsProcessor:
         # Read the CSV file
         df = pd.read_csv(filename, index_col=0)
 
+        initial_row_count = len(df)
+
         # Calculate base Bollinger Bands values
         df = self.calculate_bollinger_values(df)
 
         # Calculate enhanced features with first-level normalization
         df = self.calculate_enhanced_features(df)
+
+        if len(df) != initial_row_count:
+            raise ValueError(f"Row count changed during processing: {initial_row_count} -> {len(df)}")
 
         # Save back to CSV
         df.to_csv(filename)

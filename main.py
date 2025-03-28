@@ -36,6 +36,13 @@ def add_price_directionality(df):
 
     print(f"Direction distribution: {df['direction'].value_counts().to_dict()}")
 
+    print(f"\nData Summary 2:")
+    print(f"Total records: {len(df)}")
+    print(f"Date range: {df.index.min()} to {df.index.max()}")
+    print(f"Memory usage: {df.memory_usage().sum() / 1024 / 1024:.2f} MB")
+    print("\nSample of data:")
+    print(df.tail(10))
+
     return df
 
 def get_historical_data(symbol, interval, exchange):
@@ -65,7 +72,7 @@ def get_historical_data(symbol, interval, exchange):
             print(f"Date range: {df.index.min()} to {df.index.max()}")
             print(f"Memory usage: {df.memory_usage().sum() / 1024 / 1024:.2f} MB")
             print("\nSample of data:")
-            print(df.head())
+            print(df.tail(10))
             return df
         else:
             print("No data collected!")
@@ -470,9 +477,10 @@ def train_transformer_model(sequence_datasets):
 
 if __name__ == "__main__":
     # Configuration. symbols and intervals can be extended for multi-symbol and multi-interval processing
-    symbols = ["BTCUSDT"]
+    symbols = ["BTCUSDC"]
     intervals = ["12h"]
-    data_directory = "binance_futures_historical_data"
+    # data_directory = "binance_futures_historical_data"
+    data_directory = "binance_us_historical_data"
 
     # Create data directory if it doesn't exist
     os.makedirs(data_directory, exist_ok=True)
@@ -480,7 +488,7 @@ if __name__ == "__main__":
     # 1. Fetch historical data for each symbol and interval
     for symbol in symbols:
         for interval in intervals:
-            get_historical_data(symbol=symbol, interval=interval, exchange="binance_futures")
+            get_historical_data(symbol=symbol, interval=interval, exchange="binance_us") # "binance_futures"
             # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
 
     # 2. Calculate technical indicators for all symbols and intervals
