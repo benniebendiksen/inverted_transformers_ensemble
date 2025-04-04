@@ -42,6 +42,7 @@ def add_price_directionality(df):
 
     print(f"\nData Summary 2:")
     print(f"Total records: {len(df)}")
+    print(f"Total columns: {len(df.columns)}")
     print(f"Date range: {df.index.min()} to {df.index.max()}")
     print(f"Memory usage: {df.memory_usage().sum() / 1024 / 1024:.2f} MB")
     print("\nSample of data:")
@@ -152,14 +153,20 @@ def calculate_indicators(directory_name, symbols, intervals):
 
             # Load the data file
             filename = data_dir / f"{symbol.lower()}_{interval}_historical.csv"
+            # filename = data_dir / "BITSTAMP_BTCUSD_12H_StrictBiz.csv"
             print(f"calculate_indicators: loading historical dataset from: {filename}")
             df = pd.read_csv(filename, index_col=0)
+
+            # Print column count
+            print(f"Column count load: {len(df.columns)}")
 
             # Add price directionality indicator before other processing
             df = add_price_directionality(df)
 
             # Save the updated dataframe back to CSV
-            df.to_csv(filename)
+            # df.to_csv(filename)
+
+            print(f"Column count add dir: {len(df.columns)}")
 
             # Primary MACD processor (12-26-9 standard configuration)
             macd_processor = MACDProcessor(
@@ -168,7 +175,9 @@ def calculate_indicators(directory_name, symbols, intervals):
                 ma_slow=Config.MA_SLOW,
                 signal_length=Config.SIGNAL_LENGTH
             )
-            macd_processor.process_csv(symbol, interval)
+            df = macd_processor.process_csv(symbol, interval, df)
+
+            print(f"Column count mac 1: {len(df.columns)}")
 
             # Secondary MACD processor (8-17-9 configuration)
             macd_processor_secondary = MACDProcessor(
@@ -177,7 +186,9 @@ def calculate_indicators(directory_name, symbols, intervals):
                 ma_slow=17,
                 signal_length=9
             )
-            macd_processor_secondary.process_csv(symbol, interval)
+            df = macd_processor_secondary.process_csv(symbol, interval, df)
+
+            print(f"Column count mac 2: {len(df.columns)}")
 
             # Primary Bollinger Bands processor (20-period standard configuration)
             bband_processor = BollingerBandsProcessor(
@@ -186,7 +197,9 @@ def calculate_indicators(directory_name, symbols, intervals):
                 multiplier=Config.BOLL_MULTIPLIER,
                 slope_period=Config.SLOPE_PERIOD
             )
-            bband_processor.process_csv(symbol, interval)
+            df = bband_processor.process_csv(symbol, interval, df)
+
+            print(f"Column count bband: {len(df.columns)}")
 
             # Secondary Bollinger Bands processor (50-period longer term configuration)
             bband_processor_secondary = BollingerBandsProcessor(
@@ -195,7 +208,9 @@ def calculate_indicators(directory_name, symbols, intervals):
                 multiplier=Config.BOLL_MULTIPLIER,
                 slope_period=Config.SLOPE_PERIOD
             )
-            bband_processor_secondary.process_csv(symbol, interval)
+            df = bband_processor_secondary.process_csv(symbol, interval, df)
+
+            print(f"Column count bband 2: {len(df.columns)}")
 
             # RSI processor
             rsi_processor = RSIProcessor(
@@ -204,7 +219,9 @@ def calculate_indicators(directory_name, symbols, intervals):
                 oversold=Config.RSI_OVERSOLD,
                 overbought=Config.RSI_OVERBOUGHT
             )
-            rsi_processor.process_csv(symbol, interval)
+            df = rsi_processor.process_csv(symbol, interval, df)
+
+            print(f"Column count rsi: {len(df.columns)}")
 
             # Fundamental Market Features processor
             market_processor = MarketFeaturesProcessor(
@@ -213,7 +230,9 @@ def calculate_indicators(directory_name, symbols, intervals):
                 volatility_windows=[4, 8],
                 volume_windows=[4, 8]
             )
-            market_processor.process_csv(symbol, interval)
+            df = market_processor.process_csv(symbol, interval, df)
+
+            print(f"Column count market features: {len(df.columns)}")
 
             # Horizon-Aligned Features processor
             horizon_processor = HorizonAlignedIndicatorsProcessor(
@@ -221,7 +240,15 @@ def calculate_indicators(directory_name, symbols, intervals):
                 forecast_steps=Config.FORECAST_STEPS,
                 multiples=[1]
             )
-            horizon_processor.process_csv(symbol, interval)
+            df = horizon_processor.process_csv(symbol, interval, df)
+
+            print(f"Column count horizon aligned: {len(df.columns)}")
+            # Save to CSV
+            filename = data_dir / f"{symbol.lower()}_{interval}_historical_python_processed.csv"
+            # filename = data_dir / "bitstamp_btcusd_12h_3_strict_biz_python_processes.csv"
+            df.to_csv(filename)
+            print(f"Processed and stored at {filename}")
+
 
             print(f"Completed processing for {symbol} {interval}")
 

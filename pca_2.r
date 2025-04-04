@@ -1,26 +1,69 @@
 # PCA Analysis and Export for Cryptocurrency Time Series with Proper Train/Val/Test Split
+# Fixed timestamp handling
 library(readr)
 library(tidyverse)
 library(stats)
 
 # Set the file path
-# file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdc_12h_historical.csv"
+# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/bitstamp_btcusd_12h_2_strict_biz_python_processes.csv"
 # file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical.csv"
-file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_consolidated.csv"
-
+file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_consolidated.csv"
 
 #===============================================================================
 # Data Loading and Preprocessing Functions
 #===============================================================================
 
-# Function to read and prepare the data
+# Function to read and prepare the data with explicit timestamp handling
 load_data <- function(file_path) {
   # Read the CSV file
   df <- read_csv(file_path)
   
-  # Convert timestamp to proper datetime if needed
+  # Check if timestamp column exists and try to convert it with proper error handling
   if("timestamp" %in% colnames(df)) {
-    df$timestamp <- as.POSIXct(df$timestamp)
+    # First check what type of data we're dealing with
+    cat("First few values in timestamp column:\n")
+    print(head(df$timestamp))
+    
+    # Try to handle different timestamp formats
+    tryCatch({
+      # Check if it's already a datetime object
+      if(!inherits(df$timestamp, "POSIXct")) {
+        # Try parsing with explicit format if it's a character
+        if(is.character(df$timestamp)) {
+          # Check format of first timestamp to determine proper parsing
+          first_ts <- df$timestamp[1]
+          
+          if(grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", first_ts)) {
+            # Standard format: "YYYY-MM-DD HH:MM:SS"
+            df$timestamp <- as.POSIXct(df$timestamp, format="%Y-%m-%d %H:%M:%S")
+          } else if(grepl("^\\d{1,2}/\\d{1,2}/\\d{4}\\s+\\d{1,2}:\\d{2}:\\d{2}\\s+[AP]M$", first_ts)) {
+            # Format: "M/D/YYYY HH:MM:SS AM/PM"
+            cat("Detected format: M/D/YYYY HH:MM:SS AM/PM\n")
+            df$timestamp <- as.POSIXct(df$timestamp, format="%m/%d/%Y %I:%M:%S %p")
+          } else if(grepl("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}", first_ts)) {
+            # ISO format: "YYYY-MM-DDThh:mm:ss"
+            df$timestamp <- as.POSIXct(df$timestamp, format="%Y-%m-%dT%H:%M:%S")
+          } else if(grepl("^\\d+$", first_ts)) {
+            # Unix timestamp (seconds since epoch)
+            df$timestamp <- as.POSIXct(as.numeric(df$timestamp), origin="1970-01-01")
+          } else {
+            # If format is unknown, try default parsing first
+            cat("Attempting to auto-detect timestamp format...\n")
+            df$timestamp <- as.POSIXct(df$timestamp)
+          }
+        } else if(is.numeric(df$timestamp)) {
+          # Numeric timestamps are assumed to be Unix timestamps
+          df$timestamp <- as.POSIXct(df$timestamp, origin="1970-01-01")
+        }
+      }
+      
+      cat("Timestamp conversion successful. Sample values:\n")
+      print(head(df$timestamp))
+      
+    }, error = function(e) {
+      cat("Error converting timestamps:", e$message, "\n")
+      cat("Will proceed with timestamp column as-is.\n")
+    })
   }
   
   # Check for infinite values and replace with NA
@@ -33,7 +76,13 @@ load_data <- function(file_path) {
 split_data_chronologically <- function(df, train_ratio = 0.85, valid_ratio = 0.10, test_ratio = 0.05) {
   # Ensure data is ordered chronologically
   if("timestamp" %in% colnames(df)) {
-    df <- df %>% arrange(timestamp)
+    # Check if timestamp is a valid datetime column
+    if(inherits(df$timestamp, "POSIXct")) {
+      df <- df %>% arrange(timestamp)
+    } else {
+      # If timestamp isn't a proper datetime, just use row order
+      cat("Warning: timestamp not converted to datetime. Using row order for chronological splitting.\n")
+    }
   }
   
   # Calculate split indices
@@ -90,7 +139,16 @@ handle_missing_values <- function(df, train_idx) {
 remove_highly_correlated <- function(df, train_idx, threshold = 0.95) {
   # Calculate the correlation matrix using only training data
   train_data <- df[train_idx, ] %>% select_if(is.numeric)
-  cor_matrix <- cor(train_data, use = "complete.obs")
+  
+  # Use pairwise.complete.obs to handle NA values
+  cor_matrix <- cor(train_data, use = "pairwise.complete.obs")
+  
+  # Check for NA values in correlation matrix
+  if(any(is.na(cor_matrix))) {
+    cat("Warning: Some correlations could not be computed due to missing values.\n")
+    cat("Setting NA correlations to 0 to proceed with analysis.\n")
+    cor_matrix[is.na(cor_matrix)] <- 0
+  }
   
   # Find highly correlated pairs
   high_cor <- which(abs(cor_matrix) > threshold & abs(cor_matrix) < 1, arr.ind = TRUE)
@@ -134,10 +192,10 @@ remove_highly_correlated <- function(df, train_idx, threshold = 0.95) {
 remove_zero_variance <- function(df, train_idx) {
   # Calculate variance for all numeric columns in training data only
   train_data <- df[train_idx, ] %>% select_if(is.numeric)
-  variances <- apply(train_data, 2, var)
+  variances <- apply(train_data, 2, var, na.rm = TRUE)
   
   # Identify columns with near-zero variance
-  zero_var_cols <- names(which(variances < 1e-10))
+  zero_var_cols <- names(which(variances < 1e-10 | is.na(variances)))
   
   if(length(zero_var_cols) > 0) {
     cat("\nRemoving", length(zero_var_cols), "columns with zero or near-zero variance in training data:\n")
@@ -214,7 +272,7 @@ analyze_pca_components <- function(processed_data, train_idx) {
   train_scale <- apply(numeric_df[train_idx, ], 2, sd, na.rm = TRUE)
   
   # Handle any zero scale values
-  zero_scale_cols <- names(which(train_scale == 0))
+  zero_scale_cols <- names(which(train_scale == 0 | is.na(train_scale)))
   if(length(zero_scale_cols) > 0) {
     cat("\nWarning:", length(zero_scale_cols), "columns have zero standard deviation in training data.\n")
     cat("These columns will be removed:", paste(zero_scale_cols, collapse=", "), "\n")
@@ -431,6 +489,14 @@ export_pca_components <- function(results, n_components, output_file = NULL) {
     colnames(final_data)[1] <- "date"  # Rename to match expected format
   }
   
+  
+  # Add timestamp as first column if it exists
+  else if (!is.null(preserved_cols$time)) {
+    cat("Adding timestamp as first column\n")
+    final_data <- cbind(date = preserved_cols$timestamp, final_data)
+    colnames(final_data)[1] <- "date"  # Rename to match expected format
+  }
+  
   # Add direction column if it exists
   if (!is.null(preserved_cols$direction)) {
     cat("Adding price direction column\n")
@@ -451,7 +517,7 @@ export_pca_components <- function(results, n_components, output_file = NULL) {
   
   # Define export path
   if (is.null(output_file)) {
-    output_file <- paste0("btcusdc_pca_components_", n_components, ".csv")
+    output_file <- paste0("btcusdt_pca_components_", n_components, ".csv")
   }
   export_path <- file.path(dirname(file_path), output_file)
   
@@ -478,7 +544,7 @@ export_pca_components <- function(results, n_components, output_file = NULL) {
 }
 
 # Export multiple versions with different component counts
-export_multiple_versions <- function(results, component_counts, base_filename = "btcusdc_pca_components") {
+export_multiple_versions <- function(results, component_counts, base_filename = "btcusdt_pca_components") {
   exported_datasets <- list()
   
   for (n in component_counts) {
@@ -493,14 +559,20 @@ export_multiple_versions <- function(results, component_counts, base_filename = 
 # Script Execution with Proper Train/Val/Test Splits
 #===============================================================================
 
-# Run the full analysis with 85% training, 10% validation, 5% test
+# Run the full analysis with 88% training, 7% validation, 5% test
 results <- run_pca_analysis(file_path, train_ratio = 0.88, valid_ratio = 0.07, test_ratio = 0.05)
 
 # Export dataset with specified number of components
-# Adjust the number of components based on your PCA results
-# For example, to capture 95% of variance:
-#export_pca_components(results, n_components = 60, 
-#                      output_file = "btcusdt_pca_components_12h_60_07_05.csv")
+# Uncomment and adjust the number of components based on your PCA results
+# For example, to capture 90% of variance:
+export_pca_components(results, n_components = 73, 
+                      output_file = "btcusdt_pca_components_12h_4h_73_07_05.csv")
+
+#export_pca_components(results, n_components = 58, 
+#                      output_file = "btcusdt_pca_components_12h_12h_58_07_05.csv")
+
+# Or export multiple versions with different component counts:
+# export_multiple_versions(results, c(30, 60, 90))
 
 cat("\n\nPCA analysis with proper train/validation/test splits complete.\n")
 

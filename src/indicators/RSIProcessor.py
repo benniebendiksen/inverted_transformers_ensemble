@@ -46,7 +46,7 @@ class RSIProcessor:
         # Default slope period for calculating rates of change
         self.slope_period = 10
 
-    def process_csv(self, symbol: str, interval: str) -> pd.DataFrame:
+    def process_csv(self, symbol: str, interval: str, df: pd.DataFrame) -> pd.DataFrame:
         """
         Process a single CSV file to add RSI indicators without normalization.
         This method focuses on feature calculation for the growing dataset.
@@ -58,13 +58,13 @@ class RSIProcessor:
         Returns:
             Processed DataFrame with RSI features
         """
-        filename = self.data_dir / f"{symbol.lower()}_{interval}_historical.csv"
+        # filename = self.data_dir / f"{symbol.lower()}_{interval}_historical.csv"
 
-        if not os.path.exists(filename):
-            raise FileNotFoundError(f"Historical data file not found: {filename}")
-
-        # Read the CSV file
-        df = pd.read_csv(filename, index_col=0)
+        # if not os.path.exists(filename):
+        #     raise FileNotFoundError(f"Historical data file not found: {filename}")
+        #
+        # # Read the CSV file
+        # df = pd.read_csv(filename, index_col=0)
 
         initial_row_count = len(df)
 
@@ -77,10 +77,10 @@ class RSIProcessor:
         if len(df) != initial_row_count:
             raise ValueError(f"Row count changed during processing: {initial_row_count} -> {len(df)}")
 
-        # Save back to CSV
-        df.to_csv(filename)
-
-        print(f"Processed and stored RSI features for {filename}")
+        # # Save back to CSV
+        # df.to_csv(filename)
+        #
+        # print(f"Processed and stored RSI features for {filename}")
         print(f"Sample of processed data:")
         print(df[[
             'close',

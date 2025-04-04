@@ -53,7 +53,7 @@ class BollingerBandsProcessor:
         # Dictionary to store normalization parameters
         self.normalization_params = {}
 
-    def process_csv(self, symbol: str, interval: str) -> pd.DataFrame:
+    def process_csv(self, symbol: str, interval: str, df: pd.DataFrame) -> pd.DataFrame:
         """
         Process a single CSV file to add Bollinger Bands indicators without normalization.
         This method focuses on feature calculation for the growing dataset.
@@ -65,13 +65,13 @@ class BollingerBandsProcessor:
         Returns:
             Processed DataFrame with Bollinger Bands features
         """
-        filename = self.data_dir / f"{symbol.lower()}_{interval}_historical.csv"
+        # filename = self.data_dir / f"{symbol.lower()}_{interval}_historical.csv"
 
-        if not os.path.exists(filename):
-            raise FileNotFoundError(f"Historical data file not found: {filename}")
-
-        # Read the CSV file
-        df = pd.read_csv(filename, index_col=0)
+        # if not os.path.exists(filename):
+        #     raise FileNotFoundError(f"Historical data file not found: {filename}")
+        #
+        # # Read the CSV file
+        # df = pd.read_csv(filename, index_col=0)
 
         initial_row_count = len(df)
 
@@ -84,10 +84,10 @@ class BollingerBandsProcessor:
         if len(df) != initial_row_count:
             raise ValueError(f"Row count changed during processing: {initial_row_count} -> {len(df)}")
 
-        # Save back to CSV
-        df.to_csv(filename)
-
-        print(f"Processed and stored Bollinger Bands features for {filename}")
+        # # Save back to CSV
+        # df.to_csv(filename)
+        #
+        # print(f"Processed and stored Bollinger Bands features for {filename}")
 
         return df
 

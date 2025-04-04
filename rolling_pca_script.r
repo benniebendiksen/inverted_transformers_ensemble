@@ -656,7 +656,7 @@ run_rolling_window_pca <- function(file_path,
     results <- run_rolling_pca_analysis(df, split_data)
     
     # Export results
-    output_file <- paste0("btcusdt_pca_components_", n_components, "_window_", window_index + 1, ".csv")
+    output_file <- paste0("btcusdt_pca_components_12h_60_07_05_", n_components, "_window_", window_index + 1, ".csv")
     output_path <- file.path(output_dir, output_file)
     
     cat("\n=== EXPORTING PCA RESULTS FOR WINDOW", window_index + 1, "===\n")
@@ -727,10 +727,10 @@ run_rolling_window_pca <- function(file_path,
    file_path = file_path,
    fixed_val_start = 3558,    # Validation starts at row 3552
    val_size = 282,            # Validation set is 282 rows
-   test_samples = 15,
-   sequence_length = 98,
+   test_samples = 10,
+   sequence_length = 97,
    sliding_offset = 1,
-   n_components = 55,
+   n_components = 60,
    max_windows = 100
  )
 
