@@ -238,13 +238,13 @@ def calculate_indicators(directory_name, symbols, intervals):
             horizon_processor = HorizonAlignedIndicatorsProcessor(
                 data_dir=data_dir,
                 forecast_steps=Config.FORECAST_STEPS,
-                multiples=[1]
+                multiples=[2]
             )
             df = horizon_processor.process_csv(symbol, interval, df)
 
             print(f"Column count horizon aligned: {len(df.columns)}")
             # Save to CSV
-            filename = data_dir / f"{symbol.lower()}_{interval}_historical_python_processed.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_historical_aligned_18.csv"
             # filename = data_dir / "bitstamp_btcusd_12h_3_strict_biz_python_processes.csv"
             df.to_csv(filename)
             print(f"Processed and stored at {filename}")
@@ -525,10 +525,10 @@ if __name__ == "__main__":
     os.makedirs(data_directory, exist_ok=True)
 
     # 1. Fetch historical data for each symbol and interval
-    for symbol in symbols:
-        for interval in intervals:
-            get_historical_data(str_data_dir=data_directory, symbol=symbol, interval=interval, exchange="binance_futures")  # "binance_us"
-            # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
+    # for symbol in symbols:
+    #     for interval in intervals:
+    #         get_historical_data(str_data_dir=data_directory, symbol=symbol, interval=interval, exchange="binance_futures")  # "binance_us"
+    #         # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
 
     # 2. Calculate technical indicators for all symbols and intervals
     calculate_indicators(directory_name=data_directory, symbols=symbols, intervals=intervals)

@@ -6,7 +6,7 @@ library(stats)
 # Set the file path
 # file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdc_12h_historical.csv"
 # file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical.csv"
-file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_consolidated.csv"
+file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_consolidated_2_copy.csv"
 
 
 #===============================================================================

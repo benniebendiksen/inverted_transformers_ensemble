@@ -31,9 +31,9 @@ def main():
     print("=" * 60)
 
     # Define input and output file paths
-    input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical.csv'
+    input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_aligned_18.csv'
     input_4h_file = 'binance_futures_historical_data/btc_usdt_4h_features.csv'
-    output_file = 'binance_futures_historical_data/btcusdt_12h_4h_consolidated.csv'
+    output_file = 'binance_futures_historical_data/btcusdt_12h_4h_consolidated_2.csv'
 
     print(f"Starting data consolidation process:")
     print(f"12h data source: {input_12h_file}")

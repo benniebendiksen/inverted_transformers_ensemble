@@ -1,13 +1,14 @@
 # PCA Analysis and Export for Cryptocurrency Time Series with Proper Train/Val/Test Split
-# Fixed timestamp handling
+# Enhanced with support for both percentage-based and fixed-position splitting
 library(readr)
 library(tidyverse)
 library(stats)
 
 # Set the file path
-# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_aligned_18.csv"
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_with_horizon_aligned.csv"
-file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_consolidated_2_copy.csv"
+# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/bitstamp_btcusd_12h_2_strict_biz_python_processes.csv"
+# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_consolidated_04_04.csv"
+# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_python_processed_04_04.csv"
+file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_consolidated_2.csv"
 
 #===============================================================================
 # Data Loading and Preprocessing Functions
@@ -72,8 +73,26 @@ load_data <- function(file_path) {
   return(df)
 }
 
-# Function to split data chronologically with proper train/val/test splits
-split_data_chronologically <- function(df, train_ratio = 0.85, valid_ratio = 0.10, test_ratio = 0.05) {
+# ENHANCED: Modified to support both percentage-based and fixed-position splitting approaches
+split_data_chronologically <- function(df, 
+                                       # Percentage-based parameters  
+                                       train_ratio = NULL, valid_ratio = NULL, test_ratio = NULL,
+                                       # Fixed position parameters
+                                       fixed_val_start = NULL, val_size = NULL) {
+  
+  # Determine which method to use based on provided parameters
+  use_percentage = !is.null(train_ratio) && !is.null(valid_ratio)
+  use_fixed_indices = !is.null(fixed_val_start) && !is.null(val_size)
+  
+  if (!use_percentage && !use_fixed_indices) {
+    stop("Must provide either percentage parameters (train_ratio, valid_ratio) or fixed index parameters (fixed_val_start, val_size)")
+  }
+  
+  if (use_percentage && use_fixed_indices) {
+    warning("Both percentage and fixed index parameters provided. Using fixed index parameters.")
+    use_percentage = FALSE
+  }
+  
   # Ensure data is ordered chronologically
   if("timestamp" %in% colnames(df)) {
     # Check if timestamp is a valid datetime column
@@ -85,16 +104,46 @@ split_data_chronologically <- function(df, train_ratio = 0.85, valid_ratio = 0.1
     }
   }
   
-  # Calculate split indices
+  # Calculate total number of rows
   n <- nrow(df)
-  n_train <- floor(n * train_ratio)
-  n_valid <- floor(n * valid_ratio)
-  n_test <- n - n_train - n_valid  # Remainder goes to test
   
-  # Create the splits
-  train_idx <- 1:n_train
-  valid_idx <- (n_train + 1):(n_train + n_valid)
-  test_idx <- (n_train + n_valid + 1):n
+  if (use_percentage) {
+    # Percentage-based approach (original method)
+    n_train <- floor(n * train_ratio)
+    n_valid <- floor(n * valid_ratio)
+    n_test <- n - n_train - n_valid  # Remainder goes to test
+    
+    # Create the splits
+    train_idx <- 1:n_train
+    valid_idx <- (n_train + 1):(n_train + n_valid)
+    test_idx <- (n_train + n_valid + 1):n
+    
+    cat("Data split chronologically using percentage-based method:\n")
+    cat("  Training set:   ", length(train_idx), "rows (", train_ratio*100, "%)\n")
+    cat("  Validation set: ", length(valid_idx), "rows (", valid_ratio*100, "%)\n")
+    cat("  Test set:       ", length(test_idx), "rows (", test_ratio*100, "%)\n")
+    
+  } else {
+    # Fixed position approach (new method, similar to first script)
+    # Calculate training size and test start
+    train_size <- fixed_val_start - 1
+    test_start <- fixed_val_start + val_size
+    
+    # Create the splits
+    train_idx <- 1:train_size
+    valid_idx <- fixed_val_start:(fixed_val_start + val_size - 1)
+    test_idx <- test_start:n
+    
+    # Calculate percentages for informational purposes
+    train_pct <- length(train_idx) / n * 100
+    valid_pct <- length(valid_idx) / n * 100
+    test_pct <- length(test_idx) / n * 100
+    
+    cat("Data split chronologically using fixed position method:\n")
+    cat("  Training set:   ", length(train_idx), "rows (", round(train_pct, 2), "%) - rows 1 to", max(train_idx), "\n")
+    cat("  Validation set: ", length(valid_idx), "rows (", round(valid_pct, 2), "%) - rows", min(valid_idx), "to", max(valid_idx), "\n")
+    cat("  Test set:       ", length(test_idx), "rows (", round(test_pct, 2), "%) - rows", min(test_idx), "to", n, "\n")
+  }
   
   # Create split indicators
   split_indicators <- rep(NA, n)
@@ -104,11 +153,6 @@ split_data_chronologically <- function(df, train_ratio = 0.85, valid_ratio = 0.1
   
   # Add split column to the dataframe
   df$split <- split_indicators
-  
-  cat("Data split chronologically with distinct validation and test sets:\n")
-  cat("  Training set:   ", length(train_idx), "rows (", train_ratio*100, "%)\n")
-  cat("  Validation set: ", length(valid_idx), "rows (", valid_ratio*100, "%)\n")
-  cat("  Test set:       ", length(test_idx), "rows (", test_ratio*100, "%)\n")
   
   return(list(
     data = df,
@@ -412,19 +456,56 @@ analyze_pca_components <- function(processed_data, train_idx) {
 }
 
 #===============================================================================
-# Main Analysis Execution Function - With Proper Train/Val/Test Splits
+# Main Analysis Execution Function - Enhanced With Flexible Split Options
 #===============================================================================
 
-# Main execution - perform full PCA analysis with proper train/val/test splits
-run_pca_analysis <- function(file_path, train_ratio = 0.85, valid_ratio = 0.10, test_ratio = 0.05) {
+# ENHANCED: Modified to support both percentage-based and fixed-position splitting approaches
+run_pca_analysis <- function(file_path, 
+                             # Percentage-based parameters 
+                             train_ratio = NULL, valid_ratio = NULL, test_ratio = NULL,
+                             # Fixed position parameters
+                             fixed_val_start = NULL, val_size = NULL) {
+  
+  # Validate parameters - must have either percentage or fixed indices
+  use_percentage = !is.null(train_ratio) && !is.null(valid_ratio)
+  use_fixed_indices = !is.null(fixed_val_start) && !is.null(val_size)
+  
+  if (!use_percentage && !use_fixed_indices) {
+    stop("Must provide either percentage parameters (train_ratio, valid_ratio, test_ratio) or fixed index parameters (fixed_val_start, val_size)")
+  }
+  
+  if (use_percentage && use_fixed_indices) {
+    warning("Both percentage and fixed index parameters provided. Using fixed index parameters.")
+    use_percentage = FALSE
+  }
+  
   # Load data
   cat("Loading data...\n")
   df <- load_data(file_path)
   cat("Dataset loaded:", nrow(df), "rows,", ncol(df), "columns\n")
   
-  # Split data chronologically with proper train/val/test splits
+  # Split data chronologically with flexible approach
   cat("\n=== SPLITTING DATA CHRONOLOGICALLY ===\n")
-  split_data <- split_data_chronologically(df, train_ratio, valid_ratio, test_ratio)
+  if (use_percentage) {
+    split_data <- split_data_chronologically(
+      df = df, 
+      train_ratio = train_ratio, 
+      valid_ratio = valid_ratio, 
+      test_ratio = test_ratio,
+      fixed_val_start = NULL, 
+      val_size = NULL
+    )
+  } else {
+    split_data <- split_data_chronologically(
+      df = df, 
+      train_ratio = NULL, 
+      valid_ratio = NULL, 
+      test_ratio = NULL,
+      fixed_val_start = fixed_val_start, 
+      val_size = val_size
+    )
+  }
+  
   df_split <- split_data$data
   train_idx <- split_data$train_idx
   valid_idx <- split_data$valid_idx
@@ -556,24 +637,33 @@ export_multiple_versions <- function(results, component_counts, base_filename = 
 }
 
 #===============================================================================
-# Script Execution with Proper Train/Val/Test Splits
+# Script Execution with Flexible Split Options
 #===============================================================================
 
-# Run the full analysis with 88% training, 7% validation, 5% test
-results <- run_pca_analysis(file_path, train_ratio = 0.88, valid_ratio = 0.07, test_ratio = 0.05)
+# Example 1: Run the analysis with percentage-based split (original approach)
+#results <- run_pca_analysis(
+#   file_path = file_path, 
+#   train_ratio = 0.88, 
+#   valid_ratio = 0.07, 
+#   test_ratio = 0.05
+# )
+
+results <- run_pca_analysis(
+  file_path = file_path,
+  fixed_val_start = 3572,    # Validation starts at row 3558
+  val_size = 282             # Validation set is 282 rows
+)
+
+# Example 2: Run the analysis with fixed position split (new approach)
+#results <- run_pca_analysis(
+#  file_path = file_path,
+#  fixed_val_start = 3558,    # Validation starts at row 3558, 3572
+#  val_size = 282             # Validation set is 282 rows, 282 
+#)
 
 # Export dataset with specified number of components
-# Uncomment and adjust the number of components based on your PCA results
-# For example, to capture 90% of variance:
-#export_pca_components(results, n_components = 73, 
-#                      output_file = "btcusdt_pca_components_12h_4h_73_07_05.csv")
+export_pca_components(results, n_components = 76, 
+                      output_file = "btcusdt_pca_components_12h_4h_76_3572_282_shifted.csv")
 
-#export_pca_components(results, n_components = 58, 
-#                      output_file = "btcusdt_pca_components_12h_12h_58_07_05.csv")
-
-# Or export multiple versions with different component counts:
-# export_multiple_versions(results, c(30, 60, 90))
-
-cat("\n\nPCA analysis with proper train/validation/test splits complete.\n")
-
+cat("\n\nPCA analysis with flexible splitting options complete.\n")
 
