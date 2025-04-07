@@ -31,4 +31,5 @@ class Config(BaseClass):
     SLOPE_PERIOD = 2
     # Future Horizon-Aligned PARAMS
     FORECAST_STEPS = 1
+    #fs_sp_p = 1,2,1
 

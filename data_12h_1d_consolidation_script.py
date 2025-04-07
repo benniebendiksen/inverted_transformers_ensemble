@@ -26,9 +26,9 @@ def main():
     4. Proceeds until either csv runs out of data
     """
     # Define input and output file paths
-    input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical.csv'
-    input_1d_file = 'binance_futures_historical_data/btc_usdt_1d_features.csv'
-    output_file = 'binance_futures_historical_data/btcusdt_consolidated_1d.csv'
+    input_12h_file = 'binance_futures_historical_data/btcusd_12h_python_processed_bitsap.csv'
+    input_1d_file = 'binance_futures_historical_data/btcusd_1d_features_bitsap.csv'
+    output_file = 'binance_futures_historical_data/btcusd_12h_1d_bitsap.csv'
 
     print(f"Starting data consolidation process:")
     print(f"12h data source: {input_12h_file}")
@@ -59,7 +59,14 @@ def main():
     print(f"Loaded 1d data: {len(df_1d)} rows")
 
     # Convert 12h timestamps to Unix format for comparison
-    df_12h['unix_timestamp'] = pd.to_datetime(df_12h['timestamp']).apply(lambda x: int(x.timestamp()))
+    # df_12h['unix_timestamp'] = pd.to_datetime(df_12h['timestamp']).apply(lambda x: int(x.timestamp()))
+    # Check if timestamp is already a Unix timestamp (integer) or needs conversion
+    if pd.api.types.is_integer_dtype(df_12h['timestamp']):
+        df_12h['unix_timestamp'] = df_12h['timestamp']
+        print("Timestamp column appears to be already in Unix format, using directly")
+    else:
+        df_12h['unix_timestamp'] = pd.to_datetime(df_12h['timestamp']).apply(lambda x: int(x.timestamp()))
+        print("Converted timestamp column to Unix format")
 
     # Get the first timestamp from each file
     first_time_12h = df_12h['unix_timestamp'].iloc[0]

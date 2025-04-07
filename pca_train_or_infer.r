@@ -5,10 +5,20 @@ library(tidyverse)
 library(stats)
 
 # Set the file path
-# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/bitstamp_btcusd_12h_2_strict_biz_python_processes.csv"
-# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_consolidated_04_04.csv"
-# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_python_processed_04_04.csv"
-file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_consolidated_2.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusd_12h_python_processed_bitsap_1_4_2.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusd_12h_python_processed_bitsap_2_4_2.csv"
+file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_4_2.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_4_2_old.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old.csv"
+
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusd_12h_1d_bitsap.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusd_12h_4h_1d_bitsap.csv"
+
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_complete_top_100_features_light_gbm.csv"
+
+file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_complete_top_150_features_light_gbm.csv"
+
 
 #===============================================================================
 # Data Loading and Preprocessing Functions
@@ -641,18 +651,18 @@ export_multiple_versions <- function(results, component_counts, base_filename = 
 #===============================================================================
 
 # Example 1: Run the analysis with percentage-based split (original approach)
-#results <- run_pca_analysis(
-#   file_path = file_path, 
-#   train_ratio = 0.88, 
-#   valid_ratio = 0.07, 
-#   test_ratio = 0.05
-# )
-
 results <- run_pca_analysis(
-  file_path = file_path,
-  fixed_val_start = 3572,    # Validation starts at row 3558
-  val_size = 282             # Validation set is 282 rows
-)
+   file_path = file_path, 
+   train_ratio = 0.88, 
+   valid_ratio = 0.07, 
+   test_ratio = 0.05
+ )
+
+#results <- run_pca_analysis(
+#  file_path = file_path,
+#  fixed_val_start = 3558,    # Validation starts at row 3558, 3672
+#  val_size = 282             # Validation set is 282 rows
+#)
 
 # Example 2: Run the analysis with fixed position split (new approach)
 #results <- run_pca_analysis(
@@ -660,10 +670,30 @@ results <- run_pca_analysis(
 #  fixed_val_start = 3558,    # Validation starts at row 3558, 3572
 #  val_size = 282             # Validation set is 282 rows, 282 
 #)
+# btcusd_pca_components_12h_1d_70_7_5_bitsap.csv
+# btcusd_pca_components_12h_60_7_5_bitsap.csv
+# btcusd_pca_components_12h_4h_1d_80_7_5_bitsap.csv
+
+# btcusd_pca_components_12h_70_7_5_bitsap_1_4_2.csv
+# btcusd_pca_components_12h_73_7_5_bitsap_2_4_2.csv
+# btcusd_pca_components_12h_71_7_5_bitsap_2_4_1.csv
+
+#btcusd_pca_components_12h_reduced_4h_53_7_5_1_2_1.csv
+#btcusd_pca_components_12h_reduced_4h_55_7_5_1_4_2.csv
+#btcusd_pca_components_12h_reduced_4h_47_7_5_1_4_2_old.csv
+
+#btcusd_pca_components_lightboost_12h_4h_reduced_50_7_5_1_2_1_old.csv
+
+#btcusd_pca_components_xgboost_12h_4h_reduced_43_7_5_1_2_1_old.csv
+
+# btcusd_pca_components_lightboost_12h_4h_reduced_60_7_5_1_2_1_old.csv
 
 # Export dataset with specified number of components
-export_pca_components(results, n_components = 76, 
-                      output_file = "btcusdt_pca_components_12h_4h_76_3572_282_shifted.csv")
+export_pca_components(results, n_components = 70, 
+                      output_file = "btcusd_pca_components_lightboost_12h_4h_reduced_70_7_5_1_2_1_old.csv")
 
+
+#1-2-1
+#1-4-2
 cat("\n\nPCA analysis with flexible splitting options complete.\n")
 

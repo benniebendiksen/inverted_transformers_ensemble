@@ -152,8 +152,8 @@ def calculate_indicators(directory_name, symbols, intervals):
             print(f"\nProcessing {symbol} {interval} data with technical indicators...")
 
             # Load the data file
-            filename = data_dir / f"{symbol.lower()}_{interval}_historical.csv"
-            # filename = data_dir / "BITSTAMP_BTCUSD_12H_StrictBiz.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced.csv"
+            # filename = data_dir / "btcusd_12h_features_bitsap.csv"
             print(f"calculate_indicators: loading historical dataset from: {filename}")
             df = pd.read_csv(filename, index_col=0)
 
@@ -238,14 +238,14 @@ def calculate_indicators(directory_name, symbols, intervals):
             horizon_processor = HorizonAlignedIndicatorsProcessor(
                 data_dir=data_dir,
                 forecast_steps=Config.FORECAST_STEPS,
-                multiples=[2]
+                multiples=[1]
             )
             df = horizon_processor.process_csv(symbol, interval, df)
 
             print(f"Column count horizon aligned: {len(df.columns)}")
             # Save to CSV
-            filename = data_dir / f"{symbol.lower()}_{interval}_historical_aligned_18.csv"
-            # filename = data_dir / "bitstamp_btcusd_12h_3_strict_biz_python_processes.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_python_processed_1_2_1_old.csv"
+            # filename = data_dir / "btcusd_12h_python_processed_bitsap_2_4_1.csv"
             df.to_csv(filename)
             print(f"Processed and stored at {filename}")
 

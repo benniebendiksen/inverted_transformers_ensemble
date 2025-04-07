@@ -177,7 +177,7 @@ class MarketFeaturesProcessor:
                             df = self.calculate_candlestick_features(df)
 
                         # Calculate volume features if enabled
-                        if self.include_volume and 'quote_volume' in df.columns:
+                        if self.include_volume and 'volume' in df.columns:
                             df = self.calculate_volume_features(df)
 
                     # Calculate normalization parameters from training data
@@ -216,7 +216,7 @@ class MarketFeaturesProcessor:
                                     df = self.calculate_candlestick_features(df)
 
                                 # Calculate volume features if enabled
-                                if self.include_volume and 'quote_volume' in df.columns:
+                                if self.include_volume and 'volume' in df.columns:
                                     df = self.calculate_volume_features(df)
 
                             # Apply normalization
@@ -373,35 +373,35 @@ class MarketFeaturesProcessor:
         """
         try:
             # Verify volume column exists
-            if 'quote_volume' not in df.columns:
+            if 'volume' not in df.columns:
                 raise ValueError("DataFrame must contain a 'volume' column")
 
             # 1. Relative Volume: Compare current volume to recent average
             for window in self.volume_windows:
-                df[f'MARKET_FEATURES_rel_volume_{window}'] = df['quote_volume'] / df['quote_volume'].rolling(
+                df[f'MARKET_FEATURES_rel_volume_{window}'] = df['volume'] / df['volume'].rolling(
                     window=window).mean().replace(0, np.nan)
 
             # 2. Volume Trend: Rate of change in volume
             for window in self.volume_windows:
-                df[f'MARKET_FEATURES_volume_trend_{window}'] = df['quote_volume'].pct_change(periods=window)
+                df[f'MARKET_FEATURES_volume_trend_{window}'] = df['volume'].pct_change(periods=window)
 
             # 3. Price-Volume Relationship: Correlation between price and volume
             for window in self.volume_windows:
                 # Using rolling correlation between returns and volume
                 df[f'MARKET_FEATURES_price_vol_corr_{window}'] = df['MARKET_FEATURES_price_return'].rolling(
-                    window=window).corr(df['quote_volume'].pct_change())
+                    window=window).corr(df['volume'].pct_change())
 
             # 4. Volume Force: Combines direction and volume (positive for up days, negative for down days)
-            df['MARKET_FEATURES_volume_force'] = df['quote_volume'] * np.sign(df['close'] - df['open'])
+            df['MARKET_FEATURES_volume_force'] = df['volume'] * np.sign(df['close'] - df['open'])
 
             # 5. Normalized Volume Force: Volume force relative to recent average volume
             for window in self.volume_windows:
-                avg_volume = df['quote_volume'].rolling(window=window).mean().replace(0, np.nan)
+                avg_volume = df['volume'].rolling(window=window).mean().replace(0, np.nan)
                 df[f'MARKET_FEATURES_norm_volume_force_{window}'] = df['MARKET_FEATURES_volume_force'] / avg_volume
 
             # 6. Money Flow: Volume weighted by the position of close within high-low range
             price_position = (2 * df['close'] - df['high'] - df['low']) / (df['high'] - df['low'] + 1e-8)
-            df['MARKET_FEATURES_money_flow'] = price_position * df['quote_volume']
+            df['MARKET_FEATURES_money_flow'] = price_position * df['volume']
 
             # 7. Money Flow Ratio: Positive money flow to negative money flow ratio
             for window in self.volume_windows:
@@ -412,7 +412,7 @@ class MarketFeaturesProcessor:
                 df[f'MARKET_FEATURES_money_flow_ratio_{window}'] = pos_money_flow / neg_money_flow
 
             # 8. On-Balance Volume (OBV): Running sum of volume signed by price direction
-            df['MARKET_FEATURES_obv_change'] = df['quote_volume'] * np.where(df['close'] > df['close'].shift(1), 1,
+            df['MARKET_FEATURES_obv_change'] = df['volume'] * np.where(df['close'] > df['close'].shift(1), 1,
                                                                              np.where(df['close'] < df['close'].shift(1),
                                                                                       -1, 0))
             df['MARKET_FEATURES_obv'] = df['MARKET_FEATURES_obv_change'].cumsum()
@@ -424,7 +424,7 @@ class MarketFeaturesProcessor:
 
             # 10. Volume-Adjusted Returns: Returns weighted by relative volume
             for window in self.volume_windows:
-                rel_volume = df['quote_volume'] / df['quote_volume'].rolling(window=window).mean().replace(0, np.nan)
+                rel_volume = df['volume'] / df['volume'].rolling(window=window).mean().replace(0, np.nan)
                 df[f'MARKET_FEATURES_vol_adj_return_{window}'] = df['MARKET_FEATURES_price_return'] * rel_volume
 
             # Track volume feature fields for normalization
@@ -653,7 +653,7 @@ class MarketFeaturesProcessor:
                 df = self.calculate_candlestick_features(df)
 
             # Calculate volume features if enabled
-            if self.include_volume and 'quote_volume' in df.columns:
+            if self.include_volume and 'volume' in df.columns:
                 df = self.calculate_volume_features(df)
 
         # Apply normalization using stored parameters
