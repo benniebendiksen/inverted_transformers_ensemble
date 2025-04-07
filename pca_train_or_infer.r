@@ -5,19 +5,15 @@ library(tidyverse)
 library(stats)
 
 # Set the file path
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusd_12h_python_processed_bitsap_1_4_2.csv"
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusd_12h_python_processed_bitsap_2_4_2.csv"
-file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed.csv"
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_4_2.csv"
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_4_2_old.csv"
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old.csv"
+# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed.csv"
+# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_complete_top_100_features_light_gbm.csv"
+# file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_complete_top_150_features_light_gbm.csv"
 
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusd_12h_1d_bitsap.csv"
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusd_12h_4h_1d_bitsap.csv"
+# Get the current script directory
+script_dir <- dirname(normalizePath(sys.frame(1)$ofile))
+# Construct relative file path
+file_path <- file.path(script_dir, "binance_futures_historical_data", "btcusdt_12h_4h_complete_top_150_features_light_gbm.csv")
 
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_complete_top_100_features_light_gbm.csv"
-
-file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_4h_complete_top_150_features_light_gbm.csv"
 
 
 #===============================================================================
@@ -689,11 +685,8 @@ results <- run_pca_analysis(
 # btcusd_pca_components_lightboost_12h_4h_reduced_60_7_5_1_2_1_old.csv
 
 # Export dataset with specified number of components
-export_pca_components(results, n_components = 70, 
-                      output_file = "btcusd_pca_components_lightboost_12h_4h_reduced_70_7_5_1_2_1_old.csv")
+#export_pca_components(results, n_components = 70, 
+#                      output_file = "btcusd_pca_components_lightboost_12h_4h_reduced_70_7_5_1_2_1_old.csv")
 
-
-#1-2-1
-#1-4-2
 cat("\n\nPCA analysis with flexible splitting options complete.\n")
 
