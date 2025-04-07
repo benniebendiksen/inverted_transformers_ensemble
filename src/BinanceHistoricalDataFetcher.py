@@ -173,6 +173,7 @@ class BinanceHistoricalDataFetcher:
             for col in ['open', 'high', 'low', 'close', 'volume']:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
 
+            # This line converts a column of UNIX timestamps in milliseconds to human-readable datetime format
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
             df.set_index('timestamp', inplace=True)
 
