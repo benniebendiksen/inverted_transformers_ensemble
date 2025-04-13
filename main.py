@@ -152,8 +152,8 @@ def calculate_indicators(directory_name, symbols, intervals):
             print(f"\nProcessing {symbol} {interval} data with technical indicators...")
 
             # Load the data file
-            filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced.csv"
-            # filename = data_dir / "btcusd_12h_features_bitsap.csv"
+            # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_2.csv"
             print(f"calculate_indicators: loading historical dataset from: {filename}")
             df = pd.read_csv(filename, index_col=0)
 
@@ -244,8 +244,8 @@ def calculate_indicators(directory_name, symbols, intervals):
 
             print(f"Column count horizon aligned: {len(df.columns)}")
             # Save to CSV
-            filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_python_processed_1_2_1_old.csv"
-            # filename = data_dir / "btcusd_12h_python_processed_bitsap_2_4_1.csv"
+            # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_python_processed_1_2_1_old.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_python_processed_1_2_1_old_2.csv"
             df.to_csv(filename)
             print(f"Processed and stored at {filename}")
 
