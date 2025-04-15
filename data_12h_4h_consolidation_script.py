@@ -6,47 +6,12 @@ import csv
 
 
 def convert_timestamp(timestamp_str):
-    """Convert human-readable timestamp to Unix timestamp (UTC), supporting multiple formats"""
-    formats = [
-        '%Y-%m-%d %H:%M:%S',  # 2025-03-17 12:00:00
-        '%m/%d/%y %H:%M',  # 3/17/25 12:00
-        '%Y/%m/%d %H:%M:%S',  # 2025/03/17 12:00:00
-        '%d/%m/%Y %H:%M'  # 17/3/2025 12:00
-    ]
-
-    for fmt in formats:
-        try:
-            # Parse the timestamp and ensure it's treated as UTC
-            dt = datetime.strptime(timestamp_str, fmt)
-            # Convert to UTC timestamp
-            return int(dt.replace(tzinfo=datetime.timezone.utc).timestamp())
-        except ValueError:
-            continue
-
-    print(f"Warning: Could not parse timestamp {timestamp_str}")
-    return 0
-
-
-def format_timestamp_no_leading_zeros(unix_timestamp):
-    """Format Unix timestamp to MM/DD/YY HH:MM without leading zeros in month/day using UTC time"""
-    # Use UTC time (datetime.utcfromtimestamp) instead of local time
-    dt = datetime.utcfromtimestamp(unix_timestamp)
-    # Format with standard strftime first
-    formatted = dt.strftime('%m/%d/%y %H:%M')
-
-    # Remove leading zeros from month and day
-    parts = formatted.split('/')
-    month = parts[0].lstrip('0')
-    rest = parts[1:]
-
-    # Also remove leading zero from day
-    day_parts = rest[0].split(' ')
-    day = day_parts[0].lstrip('0')
-    day_parts[0] = day
-    rest[0] = ' '.join(day_parts)
-
-    # Reassemble the timestamp
-    return f"{month}/{'/'.join(rest)}"
+    """Convert human-readable timestamp to Unix timestamp"""
+    try:
+        return int(datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S').timestamp())
+    except ValueError:
+        print(f"Warning: Could not parse timestamp {timestamp_str}")
+        return 0
 
 
 def main():
@@ -60,25 +25,21 @@ def main():
        to maintain alignment (12 hours = 3 × 4 hours)
     4. Proceeds until either csv runs out of data
     5. Provides detailed analysis of input and output datasets
-    6. Ensures timestamps are formatted as MM/DD/YY HH:MM (e.g., 9/8/19 12:00) in UTC time
     """
     print("=" * 60)
     print("BTC HISTORICAL DATA CONSOLIDATION (12h + 4h)")
     print("=" * 60)
 
     # Define input and output file paths
-    # input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_our_baseline.csv'
-    input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_2.csv'
+    # input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt.csv'
+    input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old.csv'
     input_4h_file = 'binance_futures_historical_data/btcusdt_4h_features_04_05.csv'
-    output_file = '../iTransformer/dataset/logits/btcusdt_12h_4h_complete_2.csv'
+    output_file = '../iTransformer/dataset/optimized_features_light/btcusd_12h_4h_complete_reattempt.csv'
 
     print(f"Starting data consolidation process:")
     print(f"12h data source: {input_12h_file}")
     print(f"4h data source: {input_4h_file}")
     print(f"Output destination: {output_file}")
-
-    # Add a note about using UTC time
-    print("\n=== NOTE: All timestamps are in UTC time ===\n")
 
     # Create output directory if it doesn't exist
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -127,64 +88,30 @@ def main():
         df_12h['unix_timestamp'] = df_12h['timestamp']
         print("Timestamp column appears to be already in Unix format, using directly")
     else:
-        # Try multiple formats for conversion to Unix timestamp
-        try:
-            # First attempt: Try to parse using pd.to_datetime with flexible format detection
-            df_12h['unix_timestamp'] = pd.to_datetime(df_12h['timestamp'], infer_datetime_format=True).apply(
-                lambda x: int(x.timestamp()))
-            print("Successfully converted timestamp column to Unix format using auto-detection")
-        except Exception as e:
-            print(f"Warning: Auto-detection failed: {e}")
-            print("Attempting to convert timestamps individually with multiple formats...")
-
-            # Second attempt: Apply the custom convert_timestamp function to each row
-            df_12h['unix_timestamp'] = df_12h['timestamp'].apply(convert_timestamp)
-
-            # Verify conversion success
-            if (df_12h['unix_timestamp'] == 0).any():
-                failed_count = (df_12h['unix_timestamp'] == 0).sum()
-                print(f"Warning: {failed_count} timestamps could not be converted")
-                if failed_count > 0:
-                    sample_failed = df_12h.loc[df_12h['unix_timestamp'] == 0, 'timestamp'].iloc[0]
-                    print(f"Example problematic timestamp: {sample_failed}")
-            else:
-                print("Successfully converted all timestamps to Unix format")
+        df_12h['unix_timestamp'] = pd.to_datetime(df_12h['timestamp'], format='%m/%d/%y %H:%M').apply(
+            lambda x: int(x.timestamp()))
+        print("Converted timestamp column to Unix format")
 
     # Check if 'time' is already in Unix timestamp format (integer)
-    if pd.api.types.is_integer_dtype(df_4h['time']):
+    if df_4h['time'].dtype == 'int64' or df_4h['time'].dtype == 'int32':
         print("Note: 'time' column in 4h dataset appears to be already in Unix timestamp format")
     else:
         # Try to convert from datetime string
         try:
-            # First attempt: Try with infer_datetime_format
-            df_4h['unix_time'] = pd.to_datetime(df_4h['time'], infer_datetime_format=True).apply(
-                lambda x: int(x.timestamp()))
-            print("Converted 4h time column to unix timestamp using auto-detection")
+            df_4h['unix_time'] = pd.to_datetime(df_4h['time']).apply(lambda x: int(x.timestamp()))
+            print("Converted 4h time column to unix timestamp")
             df_4h['time'] = df_4h['unix_time']
             df_4h.drop('unix_time', axis=1, inplace=True)
         except Exception as e:
-            print(f"Warning: Auto-detection failed for 4h time column: {e}")
-            print("Attempting to convert each timestamp individually...")
-
-            # Second attempt: Apply the custom convert_timestamp function to each row
-            df_4h['time'] = df_4h['time'].apply(convert_timestamp)
-
-            # Verify conversion success
-            if (df_4h['time'] == 0).any():
-                failed_count = (df_4h['time'] == 0).sum()
-                print(f"Warning: {failed_count} timestamps in 4h data could not be converted")
-                if failed_count > 0:
-                    sample_failed = df_4h.loc[df_4h['time'] == 0, 'time'].iloc[0]
-                    print(f"Example problematic timestamp in 4h data: {sample_failed}")
-            else:
-                print("Successfully converted all 4h timestamps to Unix format")
+            print(f"Warning: Could not convert 4h time to datetime: {e}")
+            print("Assuming time is already in Unix timestamp format")
 
     # Get the first timestamp from each file
     first_time_12h = df_12h['unix_timestamp'].iloc[0]
     first_time_4h = df_4h['time'].iloc[0]
 
     print(f"First 12h timestamp: {df_12h['timestamp'].iloc[0]} ({first_time_12h})")
-    readable_4h_time = format_timestamp_no_leading_zeros(first_time_4h)
+    readable_4h_time = datetime.fromtimestamp(first_time_4h).strftime('%Y-%m-%d %H:%M:%S')
     print(f"First 4h timestamp: {readable_4h_time} ({first_time_4h})")
 
     # Print time range information for both datasets
@@ -195,8 +122,8 @@ def main():
     print(f"  - Duration: {(df_12h['unix_timestamp'].iloc[-1] - df_12h['unix_timestamp'].iloc[0]) / 3600:.1f} hours")
 
     print(f"4h dataset time range:")
-    start_time_4h = format_timestamp_no_leading_zeros(df_4h['time'].iloc[0])
-    end_time_4h = format_timestamp_no_leading_zeros(df_4h['time'].iloc[-1])
+    start_time_4h = datetime.fromtimestamp(df_4h['time'].iloc[0]).strftime('%Y-%m-%d %H:%M:%S')
+    end_time_4h = datetime.fromtimestamp(df_4h['time'].iloc[-1]).strftime('%Y-%m-%d %H:%M:%S')
     print(f"  - Start: {start_time_4h} ({df_4h['time'].iloc[0]})")
     print(f"  - End: {end_time_4h} ({df_4h['time'].iloc[-1]})")
     print(f"  - Duration: {(df_4h['time'].iloc[-1] - df_4h['time'].iloc[0]) / 3600:.1f} hours")
@@ -240,39 +167,6 @@ def main():
     # Verify the first column name from the 12h file
     first_column_name = df_12h.columns[0]
     print(f"First column in 12h data: '{first_column_name}'")
-
-    # Create a copy of the dataframe to avoid modifying the original
-    df_12h_copy = df_12h.copy()
-
-    # Format timestamps directly in the dataframe if needed
-    if not pd.api.types.is_integer_dtype(df_12h_copy['timestamp']):
-        # Check the first timestamp to see if it needs reformatting
-        sample_timestamp = df_12h_copy['timestamp'].iloc[0]
-        needs_formatting = (
-                isinstance(sample_timestamp, str) and
-                ('/' not in sample_timestamp or
-                 (len(sample_timestamp.split('/')) > 2 and
-                  len(sample_timestamp.split('/')[2].split(' ')[0]) != 2)
-                 )
-        )
-
-        if needs_formatting:
-            print("\n=== REFORMATTING TIMESTAMPS TO MM/DD/YY HH:MM ===")
-            print(f"Example before: {df_12h_copy['timestamp'].iloc[0]}")
-
-            # Convert timestamps to the desired format (no leading zeros)
-            formatted_timestamps = []
-            for idx, row in df_12h_copy.iterrows():
-                unix_ts = row['unix_timestamp']
-                formatted_ts = format_timestamp_no_leading_zeros(unix_ts)
-                formatted_timestamps.append(formatted_ts)
-
-            df_12h_copy['timestamp'] = formatted_timestamps
-            print(f"Example after: {df_12h_copy['timestamp'].iloc[0]}")
-            print("=" * 50)
-
-    # Use this modified dataframe instead of the original
-    df_12h = df_12h_copy
 
     # Create the output file with all columns
     with open(output_file, 'w', newline='') as out_file:
@@ -352,7 +246,7 @@ def main():
             # Add all columns from the 12h record (except unix_timestamp)
             # This ensures the first column of the output file matches the 12h dataset exactly
             for col in header_12h:
-                if col != 'unix_timestamp' and col != 'original_timestamp_format':
+                if col != 'unix_timestamp':
                     merged_row.append(row_12h[col])
 
             # Add the non-OHLC columns from each 4h batch
@@ -379,20 +273,6 @@ def main():
             if records_written % 100 == 0 and records_written > 0:
                 print(f"Processed {records_written} merged records...")
 
-                # Sample check - show timestamp format for the first few records
-                if records_written == 100:
-                    print("\n=== TIMESTAMP FORMAT CHECK ===")
-                    # Use the current 12h record's timestamp for format check
-                    unix_ts = row_12h['unix_timestamp']
-                    formatted_ts = format_timestamp_no_leading_zeros(unix_ts)
-                    print(f"Current record: Unix {unix_ts} → Formatted '{formatted_ts}'")
-
-                    # Show original timestamp format if available
-                    if 'original_timestamp_format' in df_12h.columns:
-                        original_format = df_12h['original_timestamp_format'].iloc[0]
-                        print(f"Original timestamp format: '{original_format}'")
-                    print("=" * 30)
-
     print(f"Consolidation complete! {records_written} merged records written to {output_file}")
     print(f"Final 12h index: {idx_12h} of {len(df_12h)}")
     print(f"Final 4h index: {idx_4h} of {len(df_4h)}")
@@ -406,19 +286,7 @@ def main():
 
     # Load and analyze the output file to provide summary information
     try:
-        print("\nAttempting to load output file for analysis...")
         df_output = pd.read_csv(output_file)
-
-        # Add format check for the first few records in the output file
-        print("\n=== OUTPUT FILE TIMESTAMP CHECK ===")
-        if '12h_unix_timestamp' in df_output.columns:
-            for i in range(min(3, len(df_output))):
-                unix_ts = df_output['12h_unix_timestamp'].iloc[i]
-                formatted_ts = format_timestamp_no_leading_zeros(unix_ts)
-                print(f"Record {i}: Unix {unix_ts} → Formatted '{formatted_ts}'")
-        else:
-            print("No timestamp column found for format checking")
-        print("=" * 30)
 
         print("\n=== OUTPUT DATASET SUMMARY ===")
         print(f"Shape: {df_output.shape} (rows, columns)")
@@ -431,9 +299,9 @@ def main():
             print(f"  - End: {df_output[timestamp_col].iloc[-1]}")
         elif '12h_unix_timestamp' in df_output.columns:
             timestamp_col = '12h_unix_timestamp'
-            # Convert unix timestamp to readable format for display - always using MM/DD/YY format without leading zeros
-            first_ts = format_timestamp_no_leading_zeros(df_output[timestamp_col].iloc[0])
-            last_ts = format_timestamp_no_leading_zeros(df_output[timestamp_col].iloc[-1])
+            # Convert unix timestamp to readable format for display
+            first_ts = datetime.fromtimestamp(df_output[timestamp_col].iloc[0])
+            last_ts = datetime.fromtimestamp(df_output[timestamp_col].iloc[-1])
             print(f"  - Start: {first_ts} ({df_output[timestamp_col].iloc[0]})")
             print(f"  - End: {last_ts} ({df_output[timestamp_col].iloc[-1]})")
             print(
