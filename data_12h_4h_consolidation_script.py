@@ -34,7 +34,7 @@ def main():
     # input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt.csv'
     input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old.csv'
     input_4h_file = 'binance_futures_historical_data/btcusdt_4h_features_04_05.csv'
-    output_file = '../iTransformer/dataset/optimized_features_light/btcusd_12h_4h_complete_reattempt.csv'
+    output_file = '../iTransformer/optimized_features_light/btcusd_12h_4h_complete_reattempt.csv'
 
     print(f"Starting data consolidation process:")
     print(f"12h data source: {input_12h_file}")

@@ -16,6 +16,58 @@ from sklearn.model_selection import train_test_split
 from datetime import datetime
 
 
+def preprocess_dataset(df, data_dir, symbol, interval):
+    """
+    Preprocess the dataset before calculating indicators.
+
+    Args:
+        df: DataFrame with historical data
+
+    Returns:
+        DataFrame with processed timestamp and ordered columns
+    """
+    print(f"Starting preprocessing. Original columns: {df.columns.tolist()}")
+
+    # Make a copy of the dataframe to avoid modifying the original
+    processed_df = df.copy()
+
+    # Check if we need to rename time column
+    if 'time' in processed_df.columns and 'timestamp' not in processed_df.columns:
+        print(f"converting time column to timestamp")
+        processed_df = processed_df.rename(columns={'time': 'timestamp'})
+
+    # Convert timestamp to datetime if it's not already
+    if 'timestamp' in processed_df.columns and not pd.api.types.is_datetime64_any_dtype(processed_df['timestamp']):
+        processed_df['timestamp'] = pd.to_datetime(processed_df['timestamp'])
+
+        # Format timestamp to match "M/D/YY H:MM"
+        processed_df['timestamp'] = processed_df['timestamp'].dt.strftime('%-m/%-d/%y %H:%M')
+
+    # Get the list of required columns that should come first
+    required_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+
+    # Make sure all required columns exist
+    for col in required_columns:
+        if col not in processed_df.columns:
+            print(col)
+            raise ValueError(f"Required column not found in the dataset")
+
+    # Get list of all other columns (that aren't in required_columns)
+    other_columns = [col for col in processed_df.columns if col not in required_columns]
+
+    # Reorder columns: first the required columns, then all other columns
+    processed_df = processed_df[required_columns + other_columns]
+
+    print(f"Preprocessing complete. First columns: {processed_df.columns[:10].tolist()}")
+    print(f"Sample of preprocessed data:")
+    print(processed_df.head())
+    filename = data_dir / f"{symbol.lower()}_{interval}_seed_april_15.csv"
+    df.to_csv(filename)
+    print(f"Processed and stored at {filename}")
+
+    return processed_df
+
+
 def add_price_directionality(df):
     """
     Add a price directionality indicator to the dataframe
@@ -152,13 +204,16 @@ def calculate_indicators(directory_name, symbols, intervals):
             print(f"\nProcessing {symbol} {interval} data with technical indicators...")
 
             # Load the data file
-            filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced.csv"
-            # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_2.csv"
+            # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_april_15.csv"
             print(f"calculate_indicators: loading historical dataset from: {filename}")
-            df = pd.read_csv(filename, index_col=0)
+            df = pd.read_csv(filename)
 
             # Print column count
             print(f"Column count load: {len(df.columns)}")
+
+            # Apply preprocessing
+            df = preprocess_dataset(df, data_dir, symbol, interval)
 
             # Add price directionality indicator before other processing
             df = add_price_directionality(df)
@@ -245,7 +300,8 @@ def calculate_indicators(directory_name, symbols, intervals):
             print(f"Column count horizon aligned: {len(df.columns)}")
             # Save to CSV
             # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_python_processed_1_2_1_old.csv"
-            filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_python_processed_1_2_1_old_reattempt.csv"
+            # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_python_processed_1_2_1_old_reattempt.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_12h_features_april_15.csv"
             df.to_csv(filename)
             print(f"Processed and stored at {filename}")
 
