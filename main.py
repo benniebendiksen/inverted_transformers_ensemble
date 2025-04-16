@@ -36,12 +36,7 @@ def preprocess_dataset(df, data_dir, symbol, interval):
         print(f"converting time column to timestamp")
         processed_df = processed_df.rename(columns={'time': 'timestamp'})
 
-    # Convert timestamp to datetime if it's not already
-    if 'timestamp' in processed_df.columns and not pd.api.types.is_datetime64_any_dtype(processed_df['timestamp']):
-        processed_df['timestamp'] = pd.to_datetime(processed_df['timestamp'])
-
-        # Format timestamp to match "M/D/YY H:MM"
-        processed_df['timestamp'] = processed_df['timestamp'].dt.strftime('%-m/%-d/%y %H:%M')
+    processed_df['timestamp'] = pd.to_datetime(processed_df['timestamp'], unit='s')
 
     # Get the list of required columns that should come first
     required_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
@@ -62,7 +57,7 @@ def preprocess_dataset(df, data_dir, symbol, interval):
     print(f"Sample of preprocessed data:")
     print(processed_df.head())
     filename = data_dir / f"{symbol.lower()}_{interval}_seed_april_15.csv"
-    df.to_csv(filename)
+    processed_df.to_csv(filename)
     print(f"Processed and stored at {filename}")
 
     return processed_df
@@ -301,7 +296,7 @@ def calculate_indicators(directory_name, symbols, intervals):
             # Save to CSV
             # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_python_processed_1_2_1_old.csv"
             # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced_python_processed_1_2_1_old_reattempt.csv"
-            filename = data_dir / f"{symbol.lower()}_{interval}_12h_features_april_15.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_features_april_15.csv"
             df.to_csv(filename)
             print(f"Processed and stored at {filename}")
 
