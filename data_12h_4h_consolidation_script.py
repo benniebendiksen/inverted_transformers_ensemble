@@ -32,9 +32,11 @@ def main():
 
     # Define input and output file paths
     # input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt.csv'
-    input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old.csv'
-    input_4h_file = 'binance_futures_historical_data/btcusdt_4h_features_04_05.csv'
-    output_file = '../iTransformer/optimized_features_light/btcusd_12h_4h_complete_reattempt.csv'
+    # input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old.csv'
+    input_12h_file = 'binance_futures_historical_data/btcusdt_12h_features_april_15.csv'
+    # input_4h_file = 'binance_futures_historical_data/btcusdt_4h_features_04_05.csv'
+    input_4h_file = 'binance_futures_historical_data/btcusdt_4h_april_15.csv'
+    output_file = '../iTransformer/optimized_features_light/btcusd_12h_4h_complete_april_15_test_file.csv'
 
     print(f"Starting data consolidation process:")
     print(f"12h data source: {input_12h_file}")
@@ -88,23 +90,78 @@ def main():
         df_12h['unix_timestamp'] = df_12h['timestamp']
         print("Timestamp column appears to be already in Unix format, using directly")
     else:
-        df_12h['unix_timestamp'] = pd.to_datetime(df_12h['timestamp'], format='%m/%d/%y %H:%M').apply(
-            lambda x: int(x.timestamp()))
-        print("Converted timestamp column to Unix format")
+        # Try multiple formats for conversion to Unix timestamp
+        try:
+            # First attempt: Try to parse using pd.to_datetime with flexible format detection
+            df_12h['unix_timestamp'] = pd.to_datetime(df_12h['timestamp'], infer_datetime_format=True).apply(
+                lambda x: int(x.timestamp()))
+            print("Successfully converted timestamp column to Unix format using auto-detection")
+        except Exception as e:
+            print(f"Warning: Auto-detection failed: {e}")
+            print("Attempting to convert timestamps individually with multiple formats...")
+
+            # Second attempt: Apply the custom convert_timestamp function to each row
+            df_12h['unix_timestamp'] = df_12h['timestamp'].apply(convert_timestamp)
+
+            # Verify conversion success
+            if (df_12h['unix_timestamp'] == 0).any():
+                failed_count = (df_12h['unix_timestamp'] == 0).sum()
+                print(f"Warning: {failed_count} timestamps could not be converted")
+                if failed_count > 0:
+                    sample_failed = df_12h.loc[df_12h['unix_timestamp'] == 0, 'timestamp'].iloc[0]
+                    print(f"Example problematic timestamp: {sample_failed}")
+            else:
+                print("Successfully converted all timestamps to Unix format")
+
+    # if pd.api.types.is_integer_dtype(df_12h['timestamp']):
+    #     df_12h['unix_timestamp'] = df_12h['timestamp']
+    #     print("Timestamp column appears to be already in Unix format, using directly")
+    # else:
+    #     df_12h['unix_timestamp'] = pd.to_datetime(df_12h['timestamp'], format='%m/%d/%y %H:%M').apply(
+    #         lambda x: int(x.timestamp()))
+    #     print("Converted timestamp column to Unix format")
 
     # Check if 'time' is already in Unix timestamp format (integer)
-    if df_4h['time'].dtype == 'int64' or df_4h['time'].dtype == 'int32':
+    if pd.api.types.is_integer_dtype(df_4h['time']):
         print("Note: 'time' column in 4h dataset appears to be already in Unix timestamp format")
     else:
         # Try to convert from datetime string
         try:
-            df_4h['unix_time'] = pd.to_datetime(df_4h['time']).apply(lambda x: int(x.timestamp()))
-            print("Converted 4h time column to unix timestamp")
+            # First attempt: Try with infer_datetime_format
+            df_4h['unix_time'] = pd.to_datetime(df_4h['time'], infer_datetime_format=True).apply(
+                lambda x: int(x.timestamp()))
+            print("Converted 4h time column to unix timestamp using auto-detection")
             df_4h['time'] = df_4h['unix_time']
             df_4h.drop('unix_time', axis=1, inplace=True)
         except Exception as e:
-            print(f"Warning: Could not convert 4h time to datetime: {e}")
-            print("Assuming time is already in Unix timestamp format")
+            print(f"Warning: Auto-detection failed for 4h time column: {e}")
+            print("Attempting to convert each timestamp individually...")
+
+            # Second attempt: Apply the custom convert_timestamp function to each row
+            df_4h['time'] = df_4h['time'].apply(convert_timestamp)
+
+            # Verify conversion success
+            if (df_4h['time'] == 0).any():
+                failed_count = (df_4h['time'] == 0).sum()
+                print(f"Warning: {failed_count} timestamps in 4h data could not be converted")
+                if failed_count > 0:
+                    sample_failed = df_4h.loc[df_4h['time'] == 0, 'time'].iloc[0]
+                    print(f"Example problematic timestamp in 4h data: {sample_failed}")
+            else:
+                print("Successfully converted all 4h timestamps to Unix format")
+    # Check if 'time' is already in Unix timestamp format (integer)
+    # if df_4h['time'].dtype == 'int64' or df_4h['time'].dtype == 'int32':
+    #     print("Note: 'time' column in 4h dataset appears to be already in Unix timestamp format")
+    # else:
+    #     # Try to convert from datetime string
+    #     try:
+    #         df_4h['unix_time'] = pd.to_datetime(df_4h['time']).apply(lambda x: int(x.timestamp()))
+    #         print("Converted 4h time column to unix timestamp")
+    #         df_4h['time'] = df_4h['unix_time']
+    #         df_4h.drop('unix_time', axis=1, inplace=True)
+    #     except Exception as e:
+    #         print(f"Warning: Could not convert 4h time to datetime: {e}")
+    #         print("Assuming time is already in Unix timestamp format")
 
     # Get the first timestamp from each file
     first_time_12h = df_12h['unix_timestamp'].iloc[0]

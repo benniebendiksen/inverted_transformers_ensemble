@@ -200,7 +200,7 @@ def calculate_indicators(directory_name, symbols, intervals):
 
             # Load the data file
             # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced.csv"
-            filename = data_dir / f"{symbol.lower()}_{interval}_april_15.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_seed_april_15.csv"
             print(f"calculate_indicators: loading historical dataset from: {filename}")
             df = pd.read_csv(filename)
 
@@ -208,7 +208,7 @@ def calculate_indicators(directory_name, symbols, intervals):
             print(f"Column count load: {len(df.columns)}")
 
             # Apply preprocessing
-            df = preprocess_dataset(df, data_dir, symbol, interval)
+            #df = preprocess_dataset(df, data_dir, symbol, interval)
 
             # Add price directionality indicator before other processing
             df = add_price_directionality(df)

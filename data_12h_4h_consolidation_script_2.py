@@ -68,9 +68,11 @@ def main():
 
     # Define input and output file paths
     # input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_our_baseline.csv'
-    input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_2.csv'
-    input_4h_file = 'binance_futures_historical_data/btcusdt_4h_features_04_05.csv'
-    output_file = '../iTransformer/dataset/logits/btcusdt_12h_4h_complete_2.csv'
+    # input_12h_file = 'binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_2.csv'
+    input_12h_file = 'binance_futures_historical_data/btcusdt_12h_features_april_15.csv'
+    # input_4h_file = 'binance_futures_historical_data/btcusdt_4h_features_04_05.csv'
+    input_4h_file = 'binance_futures_historical_data/btcusdt_4h_april_15.csv'
+    output_file = '../iTransformer/dataset/logits/btcusdt_12h_4h_april_15.csv'
 
     print(f"Starting data consolidation process:")
     print(f"12h data source: {input_12h_file}")

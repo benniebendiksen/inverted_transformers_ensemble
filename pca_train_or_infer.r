@@ -12,8 +12,12 @@ library(stats)
 
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_complete_reattempt_top_150_features_light_gbm.csv"
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_complete_top_150_features_light_gbm_baseline.csv"
-file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_complete_reattempt_reordered.csv"
-
+#file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_complete_reattempt_reordered.csv"
+#file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_reduced.csv"
+#file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_reduced_extended_14_fixed_sizes.csv"
+#file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_reduced_extended_28_fixed_sizes.csv"
+#file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_reduced_extended_14_double_fixed_sizes.csv"
+file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_to_date_fixed_train_val_size.csv"
 
 #===============================================================================
 # Data Loading and Preprocessing Functions
@@ -383,6 +387,11 @@ analyze_pca_components <- function(processed_data, train_idx) {
     cat("\n", n_95, "components needed to explain 95% of variance\n")
   }
   
+  if(any(cum_variance >= 0.98)) {
+    n_95 <- which(cum_variance >= 0.98)[1]
+    cat("\n", n_95, "components needed to explain 98% of variance\n")
+  }
+  
   # Create scree plot
   pdf("pca_scree_plot.pdf", width=10, height=6)
   
@@ -646,31 +655,40 @@ export_multiple_versions <- function(results, component_counts, base_filename = 
 #===============================================================================
 
 # Example 1: Run the analysis with percentage-based split (original approach)
-results <- run_pca_analysis(
-   file_path = file_path, 
-   train_ratio = 0.88, 
-   valid_ratio = 0.07, 
-   test_ratio = 0.05
- )
+#results <- run_pca_analysis(
+#   file_path = file_path, 
+#   train_ratio = 0.88, 
+#   valid_ratio = 0.07, 
+#   test_ratio = 0.05
+# )
 
 #results <- run_pca_analysis(
+#   file_path = file_path, 
+#   train_ratio = 0.88, 
+#   valid_ratio = 0.07, 
+#   test_ratio = 0.05
+# )
+
+# Example 2: Run the analysis with fixed position split
+#results <- run_pca_analysis(
 #  file_path = file_path,
-#  fixed_val_start = 3552,    # Validation starts at row 3552,
+#  fixed_val_start = 3551,    # Validation starts at row 3552,
 #  val_size = 282             # Validation set is 282 rows
 #)
 
-# Example 2: Run the analysis with fixed position split (new approach)
-#results <- run_pca_analysis(
-#  file_path = file_path,
-#  fixed_val_start = 3558,    # Validation starts at row 3558, 3572
-#  val_size = 282             # Validation set is 282 rows, 282 
-#)
+results <- run_pca_analysis(
+  file_path = file_path,
+  fixed_val_start = 5055,    # Validation starts at row 3552,
+  val_size = 282             # Validation set is 282 rows
+)
+
 
 # btcusd_pca_components_lightboost_12h_4h_reduced_60_7_5_1_2_1_old.csv
 
 # Export dataset with specified number of components
 export_pca_components(results, n_components = 70, 
-                      output_file = "btcusd_pca_components_lightboost_12h_4h_reduced_70_7_5_1_2_1_old_reordered.csv")
+                      output_file = "pca_components_btcusdt_70_april_15_to_date_fixed_train_val_size.csv") 
 
 cat("\n\nPCA analysis with flexible splitting options complete.\n")
+
 
