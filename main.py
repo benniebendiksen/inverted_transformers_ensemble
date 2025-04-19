@@ -71,6 +71,80 @@ def preprocess_dataset(df, data_dir, symbol, interval):
     return processed_df
 
 
+def remove_highly_correlated_columns(df, threshold=0.95):
+    """
+    Remove columns that have a correlation coefficient greater than or equal to the threshold.
+
+    Args:
+        df: DataFrame with features
+        threshold: Correlation threshold for removal (default 0.95)
+
+    Returns:
+        DataFrame with highly correlated columns removed
+    """
+    print(f"\n=== REMOVING HIGHLY CORRELATED FEATURES (THRESHOLD >= {threshold}) ===")
+
+    # Calculate the correlation matrix
+    corr_matrix = df.corr(numeric_only=True)
+
+    # Check for NA values in correlation matrix
+    if corr_matrix.isna().any().any():
+        print("Warning: Some correlations could not be computed due to missing values.")
+        print("Setting NA correlations to 0 to proceed with analysis.")
+        corr_matrix = corr_matrix.fillna(0)
+
+    # Find features with correlation greater than threshold
+    columns_to_remove = set()
+
+    # Create a list to store highly correlated pairs for reporting
+    highly_correlated_pairs = []
+
+    # Find highly correlated pairs
+    for i in range(len(corr_matrix.columns)):
+        for j in range(i + 1, len(corr_matrix.columns)):
+            if abs(corr_matrix.iloc[i, j]) >= threshold:
+                col_i = corr_matrix.columns[i]
+                col_j = corr_matrix.columns[j]
+                correlation = corr_matrix.iloc[i, j]
+
+                # Add to reporting list
+                highly_correlated_pairs.append((col_i, col_j, correlation))
+
+                # We'll remove the column with the higher average correlation with other features
+                # This approach tends to keep more fundamental features
+                avg_corr_i = corr_matrix[col_i].abs().mean()
+                avg_corr_j = corr_matrix[col_j].abs().mean()
+
+                if avg_corr_i > avg_corr_j:
+                    columns_to_remove.add(col_i)
+                else:
+                    columns_to_remove.add(col_j)
+
+    # Print top highly correlated pairs
+    print("Top highly correlated pairs:")
+    print(f"{'row':25} {'col':25} {'cor'}")
+
+    # Sort by absolute correlation value in descending order
+    highly_correlated_pairs.sort(key=lambda x: abs(x[2]), reverse=True)
+
+    # Print the top pairs (up to 10)
+    for i, (col_i, col_j, corr) in enumerate(highly_correlated_pairs[:10], 1):
+        print(f"{i:2} {col_i:25} {col_j:25} {corr:4.2f}")
+
+    # Remove the identified columns
+    print(f"\nRemoving {len(columns_to_remove)} highly correlated features")
+
+    # Create a list of columns to keep
+    columns_to_keep = [col for col in df.columns if col not in columns_to_remove]
+
+    # Subset the dataframe
+    df_reduced = df[columns_to_keep]
+
+    print(f"Dataset reduced to {len(df_reduced.columns)} columns")
+
+    return df_reduced
+
+
 def add_price_directionality(df):
     """
     Add a price directionality indicator to the dataframe
@@ -333,29 +407,50 @@ def calculate_indicators(directory_name, symbols, intervals, filename, output_fi
             df.to_csv(output_filename, index=False)
             print(f"Processed and stored at {output_filename}")
 
+            return df
+
 
 if __name__ == "__main__":
     # Configuration. symbols and intervals can be extended for multi-symbol and multi-interval processing
     symbols = ["BTCUSDT"]
-    intervals = ["4h"]
+    intervals = ["12h"]
 
     data_directory = "binance_futures_historical_data"
     # Create data directory if it doesn't exist
     os.makedirs(data_directory, exist_ok=True)
     data_dir = Path(data_directory)
 
-    filename = data_dir / "btcusdt_4h_features_04_05.csv"
-    output_filename=data_dir / f"{symbols[0].lower()}_{intervals[0]}_features_april_15_lance_4.csv"
+    filename = data_dir / "btcusdt_12h_historical_reduced.csv"
+    # filename = data_dir / "btcusdt_12h_ohlcv_april_15.csv"
+    # filename = data_dir / "btcusdt_12h_numeriques_april_15.csv"
+    output_filename=data_dir / f"{symbols[0].lower()}_{intervals[0]}_python_processed_reduced.csv"
+    reduced_output_filename = data_dir / f"{symbols[0].lower()}_{intervals[0]}_features_reduced_low_corr.csv"
+
     print(f"Loaded historical dataset from: {filename}")
+
+    # 1. Calculate technical indicators for all symbols and intervals
+    df = calculate_indicators(
+        directory_name=data_directory,
+        symbols=symbols,
+        intervals=intervals,
+        filename=filename,
+        output_filename=output_filename
+    )
+
+    # 2. Remove highly correlated features (correlation >= 0.95)
+    df_reduced = remove_highly_correlated_columns(df, threshold=0.95)
+
+    # 3. Save the reduced dataset
+    df_reduced.to_csv(reduced_output_filename, index=False)
+    print(f"Reduced dataset saved to: {reduced_output_filename}")
+
+    print("Pipeline execution complete.")
 
     # 1. Fetch historical data for each symbol and interval
     # for symbol in symbols:
     #     for interval in intervals:
     #         get_historical_data(str_data_dir=data_directory, symbol=symbol, interval=interval, exchange="binance_futures")  # "binance_us"
     #         # get_data_working_forward(symbol=symbol, interval=interval, exchange="binance_us", string_datetime="2025-03-05 23:45:00")  # will update indicator values as well
-
-    # 2. Calculate technical indicators for all symbols and intervals
-    calculate_indicators(directory_name=data_directory, symbols=symbols, intervals=intervals, filename=filename, output_filename=output_filename)
 
     # # 3. Prepare datasets for machine learning with normalization
     # processed_data = prepare_ml_datasets(

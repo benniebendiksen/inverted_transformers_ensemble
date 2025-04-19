@@ -12,12 +12,21 @@ library(stats)
 
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_complete_reattempt_top_150_features_light_gbm.csv"
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_complete_top_150_features_light_gbm_baseline.csv"
+
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_complete_reattempt_reordered.csv"
+
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_reduced.csv"
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_reduced_extended_14_fixed_sizes.csv"
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_reduced_extended_28_fixed_sizes.csv"
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_reduced_extended_14_double_fixed_sizes.csv"
-file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_4h_april_15_top_150_features_light_gbm_to_date_fixed_train_val_size.csv"
+#file_path <- "/Users/bendiksen/Desktop/iTransformer/optimized_features_light/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt_top_80_features_light_gbm.csv"
+
+#file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdt_12h_features_april_15_reduced.csv"
+#file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdt_12h_features_numeriques_april_15_reduced.csv"
+
+#file_path = "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdt_12h_features_numeriques_april_15_reduced_top_80_features_light_gbm.csv"
+
+file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt.csv"
 
 #===============================================================================
 # Data Loading and Preprocessing Functions
@@ -188,8 +197,8 @@ handle_missing_values <- function(df, train_idx) {
   return(df)
 }
 
-# Function to identify and remove highly correlated features - using only training data
-remove_highly_correlated <- function(df, train_idx, threshold = 0.95) {
+# Function to identify and remove highly correlated features - using only training data, makes call to save resulting dataset
+remove_highly_correlated <- function(df, train_idx, file_path, preserved_cols = NULL, threshold = 0.95, write_csv = TRUE) {
   # Calculate the correlation matrix using only training data
   train_data <- df[train_idx, ] %>% select_if(is.numeric)
   
@@ -234,9 +243,19 @@ remove_highly_correlated <- function(df, train_idx, threshold = 0.95) {
   
   cat("\nRemoving", length(cols_to_remove), "highly correlated features (identified from training data only)\n")
   
+  # Create reduced dataframe
+  df_reduced <- df %>% select(-one_of(cols_to_remove))
+  cat("Dataset reduced to", ncol(df_reduced), "columns\n")
+  
+  # Write reduced CSV if requested
+#  if (write_csv && !is.null(file_path)) {
+#    new_file_path <- write_reduced_csv(df_reduced, file_path, cols_to_remove, preserved_cols)
+#    cat("Reduced dataset written to:", new_file_path, "\n")
+ # }
+  
   # Return data without highly correlated columns (applied to all data)
   return(list(
-    data = df %>% select(-one_of(cols_to_remove)),
+    data = df_reduced,
     removed = cols_to_remove
   ))
 }
@@ -268,12 +287,91 @@ remove_zero_variance <- function(df, train_idx) {
   }
 }
 
+# Function to save preprocessed data with preserved columns before PCA
+save_preprocessed_data <- function(processed_data, preserved_cols, file_path, suffix = "_corr_removed") {
+  # Extract file path components
+  dir_path <- dirname(file_path)
+  file_name <- basename(file_path)
+  
+  # Split filename into name and extension
+  file_parts <- strsplit(file_name, "\\.")[[1]]
+  base_name <- file_parts[1]
+  extension <- file_parts[length(file_parts)]
+  
+  # Create the new filename with suffix
+  new_file_name <- paste0(base_name, suffix, ".", extension)
+  new_file_path <- file.path(dir_path, new_file_name)
+  
+  # Create a copy of the processed dataframe
+  output_df <- processed_data
+  
+  # Add preserved columns back to the dataframe
+  # Add timestamp as first column if it exists
+  if (!is.null(preserved_cols$timestamp)) {
+    output_df <- cbind(timestamp = preserved_cols$timestamp, output_df)
+  }
+  
+  # Add close price if it exists
+  if (!is.null(preserved_cols$close)) {
+    output_df$close <- preserved_cols$close
+  }
+  
+  # Add direction column if it exists
+  if (!is.null(preserved_cols$direction)) {
+    output_df$direction <- preserved_cols$direction
+  }
+  
+  # Add split column if it exists
+  if (!is.null(preserved_cols$split)) {
+    output_df$split <- preserved_cols$split
+  }
+  
+  # Write the dataframe to CSV
+  write_csv(output_df, new_file_path)
+  
+  # Calculate file stats for reporting
+  if (file.exists(file_path) && file.exists(new_file_path)) {
+    original_size <- file.size(file_path) / (1024 * 1024)  # Size in MB
+    new_size <- file.size(new_file_path) / (1024 * 1024)  # Size in MB
+    
+    cat("\n=== WRITING PREPROCESSED CSV FILE ===\n")
+    cat("Original file:", file_path, "\n")
+    cat("Preprocessed file:", new_file_path, "\n")
+    cat("Data dimensions:", nrow(output_df), "rows ×", ncol(output_df), "columns\n")
+    
+    if (!is.null(preserved_cols)) {
+      preserved_count <- sum(!sapply(preserved_cols, is.null))
+      cat("Includes", preserved_count, "preserved columns (timestamp, close, direction, split)\n")
+      
+      # Print split information if available
+      if (!is.null(preserved_cols$split)) {
+        split_counts <- table(output_df$split)
+        cat("\nData split summary:\n")
+        print(split_counts)
+      }
+      
+      # Print direction distribution if available
+      if (!is.null(preserved_cols$direction)) {
+        direction_counts <- table(output_df$direction)
+        cat("\nDirection distribution:\n")
+        print(direction_counts)
+        cat("Percentage up:", round(direction_counts["1"]/sum(direction_counts)*100, 2), "%\n")
+      }
+    }
+    
+    cat("Original file size:", round(original_size, 2), "MB\n")
+    cat("Preprocessed file size:", round(new_size, 2), "MB\n")
+  }
+  
+  return(new_file_path)
+}
+
 #===============================================================================
 # PCA Analysis Function - Modified to Respect Train/Val/Test Split
 #===============================================================================
 
 # Preprocess and prepare data for PCA - now respecting data splits
-preprocess_for_pca <- function(df, train_idx) {
+preprocess_for_pca <- function(df, train_idx, file_path = NULL) {
   # Extract and save non-numeric columns we want to keep
   preserved_cols <- list()
   
@@ -292,7 +390,7 @@ preprocess_for_pca <- function(df, train_idx) {
   
   # Remove highly correlated features - based on training data only
   cat("\n=== REMOVING HIGHLY CORRELATED FEATURES (BASED ON TRAINING DATA) ===\n")
-  reduced <- remove_highly_correlated(df, train_idx)
+  reduced <- remove_highly_correlated(df, train_idx, file_path, preserved_cols)
   df_reduced <- reduced$data
   removed_correlated <- reduced$removed
   cat("Dataset reduced to", ncol(df_reduced), "columns\n")
@@ -313,6 +411,76 @@ preprocess_for_pca <- function(df, train_idx) {
       zero_var = removed_zero_var
     )
   ))
+}
+
+# Function to write a reduced CSV after correlation analysis
+write_reduced_csv <- function(df, original_file_path, removed_columns, preserved_cols = NULL, suffix = "_corr_reduced") {
+  # Extract file path components
+  dir_path <- dirname(original_file_path)
+  file_name <- basename(original_file_path)
+  
+  # Split filename into name and extension
+  file_parts <- strsplit(file_name, "\\.")[[1]]
+  base_name <- file_parts[1]
+  extension <- file_parts[length(file_parts)]
+  
+  # Create the new filename with suffix
+  new_file_name <- paste0(base_name, suffix, ".", extension)
+  new_file_path <- file.path(dir_path, new_file_name)
+  
+  # Create a copy of the dataframe for output
+  output_df <- df
+  
+  # Add preserved columns back to the dataframe if provided
+  if (!is.null(preserved_cols)) {
+    # Add timestamp as first column if it exists
+    if (!is.null(preserved_cols$timestamp)) {
+      output_df <- cbind(timestamp = preserved_cols$timestamp, output_df)
+    }
+    
+    # Add close price if it exists
+    if (!is.null(preserved_cols$close)) {
+      output_df$close <- preserved_cols$close
+    }
+    
+    # Add direction column if it exists
+    if (!is.null(preserved_cols$direction)) {
+      output_df$direction <- preserved_cols$direction
+    }
+    
+    # Add split column if it exists
+    if (!is.null(preserved_cols$split)) {
+      output_df$split <- preserved_cols$split
+    }
+  }
+  
+  # Write the dataframe to CSV
+  write_csv(output_df, new_file_path)
+  
+  # Calculate file stats for reporting
+  if (file.exists(original_file_path) && file.exists(new_file_path)) {
+    original_size <- file.size(original_file_path) / (1024 * 1024)  # Size in MB
+    new_size <- file.size(new_file_path) / (1024 * 1024)  # Size in MB
+    size_reduction <- (1 - new_size / original_size) * 100
+    
+    cat("\n=== WRITING REDUCED CSV FILE ===\n")
+    cat("Original file:", original_file_path, "\n")
+    cat("Reduced file:", new_file_path, "\n")
+    cat("Original dimensions:", nrow(df), "rows ×", ncol(df) + length(removed_columns), "columns (before adding preserved columns)\n")
+    cat("Reduced dimensions:", nrow(output_df), "rows ×", ncol(output_df), "columns (with preserved columns)\n")
+    cat("Removed", length(removed_columns), "highly correlated columns\n")
+    
+    if (!is.null(preserved_cols)) {
+      preserved_count <- sum(!sapply(preserved_cols, is.null))
+      cat("Added back", preserved_count, "preserved columns (timestamp, close, direction, split)\n")
+    }
+    
+    cat("Original file size:", round(original_size, 2), "MB\n")
+    cat("Reduced file size:", round(new_size, 2), "MB\n")
+    cat("Size reduction:", round(size_reduction, 2), "%\n")
+  }
+  
+  return(new_file_path)
 }
 
 # Function to perform PCA - fit on training data only, then transform all data
@@ -474,11 +642,15 @@ analyze_pca_components <- function(processed_data, train_idx) {
 #===============================================================================
 
 # ENHANCED: Modified to support both percentage-based and fixed-position splitting approaches
+# ENHANCED: Modified to support both percentage-based and fixed-position splitting approaches
+# Also saves preprocessed data before PCA analysis
 run_pca_analysis <- function(file_path, 
                              # Percentage-based parameters 
                              train_ratio = NULL, valid_ratio = NULL, test_ratio = NULL,
                              # Fixed position parameters
-                             fixed_val_start = NULL, val_size = NULL) {
+                             fixed_val_start = NULL, val_size = NULL,
+                             # Optional parameters
+                             save_preprocessed = TRUE) {
   
   # Validate parameters - must have either percentage or fixed indices
   use_percentage = !is.null(train_ratio) && !is.null(valid_ratio)
@@ -527,7 +699,18 @@ run_pca_analysis <- function(file_path,
   
   # Preprocess data for PCA - using only training data for fitting
   cat("\n=== PREPROCESSING DATA (USING TRAIN DATA FOR PARAMETERS) ===\n")
-  preprocessed <- preprocess_for_pca(df_split, train_idx)
+  preprocessed <- preprocess_for_pca(df_split, train_idx, file_path)
+  
+  # Save preprocessed data before PCA if requested
+  if (save_preprocessed) {
+    cat("\n=== SAVING PREPROCESSED DATA BEFORE PCA ===\n")
+    preprocessed_file <- save_preprocessed_data(
+      processed_data = preprocessed$processed_data,
+      preserved_cols = preprocessed$preserved_cols,
+      file_path = file_path
+    )
+    cat("Preprocessed data saved to:", preprocessed_file, "\n")
+  }
   
   # Run PCA analysis - fit on training data, transform all
   cat("\n=== PCA COMPONENT ANALYSIS (FIT ON TRAIN DATA ONLY) ===\n")
@@ -654,20 +837,14 @@ export_multiple_versions <- function(results, component_counts, base_filename = 
 # Script Execution with Flexible Split Options
 #===============================================================================
 
-# Example 1: Run the analysis with percentage-based split (original approach)
-#results <- run_pca_analysis(
-#   file_path = file_path, 
-#   train_ratio = 0.88, 
-#   valid_ratio = 0.07, 
-#   test_ratio = 0.05
-# )
+# Example 1: Run the analysis with percentage-based split
 
-#results <- run_pca_analysis(
-#   file_path = file_path, 
-#   train_ratio = 0.88, 
-#   valid_ratio = 0.07, 
-#   test_ratio = 0.05
-# )
+results <- run_pca_analysis(
+   file_path = file_path, 
+   train_ratio = 0.88, 
+   valid_ratio = 0.07, 
+   test_ratio = 0.05
+ )
 
 # Example 2: Run the analysis with fixed position split
 #results <- run_pca_analysis(
@@ -676,18 +853,24 @@ export_multiple_versions <- function(results, component_counts, base_filename = 
 #  val_size = 282             # Validation set is 282 rows
 #)
 
-results <- run_pca_analysis(
-  file_path = file_path,
-  fixed_val_start = 5055,    # Validation starts at row 3552,
-  val_size = 282             # Validation set is 282 rows
-)
+#results <- run_pca_analysis(
+#  file_path = file_path,
+#  fixed_val_start = 5055,    # Validation starts at row 3552,
+#  val_size = 282             # Validation set is 282 rows
+#)
+
+#results <- run_pca_analysis(
+#  file_path = file_path,
+#  fixed_val_start = 4884,    # Validation starts at row 3552,
+#  val_size = 382             # Validation set is 282 rows
+#)
 
 
 # btcusd_pca_components_lightboost_12h_4h_reduced_60_7_5_1_2_1_old.csv
 
 # Export dataset with specified number of components
-export_pca_components(results, n_components = 70, 
-                      output_file = "pca_components_btcusdt_70_april_15_to_date_fixed_train_val_size.csv") 
+#export_pca_components(results, n_components = 65, 
+#                      output_file = "pca_components_btcusdt_65_reattempt_12h.csv") 
 
 cat("\n\nPCA analysis with flexible splitting options complete.\n")
 
