@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, List
 
 
-class HorizonAlignedIndicatorsProcessor:
+class HorizonAlignedIndicatorsProcessor_2:
     def __init__(self, data_dir: Path,
                  forecast_steps: int = 1,  # Default to 1 for single-step forecasting
                  multiples: List[int] = None,
@@ -259,8 +259,8 @@ class HorizonAlignedIndicatorsProcessor:
                 df[f'{prefix}_HIST'] = df[f'{prefix}_MACD'] - df[f'{prefix}_SIGNAL']
 
                 # ===== Rate of Change of Volume (not in other processors) =====
-                if 'quote_volume' in df.columns:
-                    df[f'{prefix}_VOLUME_ROC'] = df['quote_volume'].pct_change(periods=period) * 100
+                if 'volume' in df.columns:
+                    df[f'{prefix}_VOLUME_ROC'] = df['volume'].pct_change(periods=period) * 100
 
                 # ===== Adapted Linear Regression Features for Short-term Forecasting =====
                 # For single-step forecasting, focus on short-term regression metrics
@@ -315,7 +315,7 @@ class HorizonAlignedIndicatorsProcessor:
                     f'{prefix}_HIST'
                 ])
 
-                if 'quote_volume' in df.columns:
+                if 'volume' in df.columns:
                     self.moving_average_fields.append(f'{prefix}_VOLUME_ROC')
 
             return df
@@ -457,9 +457,9 @@ class HorizonAlignedIndicatorsProcessor:
                 )
 
                 # 4. Money Flow Index - combines price and volume
-                if 'quote_volume' in df.columns:
+                if 'volume' in df.columns:
                     typical_price = (df['high'] + df['low'] + df['close']) / 3
-                    money_flow = typical_price * df['quote_volume']
+                    money_flow = typical_price * df['volume']
 
                     pos_flow = money_flow * (typical_price > typical_price.shift(1))
                     neg_flow = money_flow * (typical_price < typical_price.shift(1))
@@ -485,7 +485,7 @@ class HorizonAlignedIndicatorsProcessor:
                 if actual_period >= 7:
                     self.momentum_fields.append(f'{prefix}_ULT_OSC')
 
-                if 'quote_volume' in df.columns:
+                if 'volume' in df.columns:
                     self.momentum_fields.append(f'{prefix}_MFI')
 
             return df

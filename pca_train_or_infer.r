@@ -26,8 +26,11 @@ library(stats)
 
 #file_path = "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdt_12h_features_numeriques_april_15_reduced_top_80_features_light_gbm.csv"
 
-file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt.csv"
-
+#file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_python_processed_reduced.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt_2.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_reduced_python_processed_1_2_1_march_17.csv"
+file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_reduced_python_processed_1_2_1_april_15.csv"
 #===============================================================================
 # Data Loading and Preprocessing Functions
 #===============================================================================
@@ -305,10 +308,10 @@ save_preprocessed_data <- function(processed_data, preserved_cols, file_path, su
   # Create a copy of the processed dataframe
   output_df <- processed_data
   
-  # Add preserved columns back to the dataframe
-  # Add timestamp as first column if it exists
+  # Add timestamp as first column if it exists and rename to "date" for consistency
   if (!is.null(preserved_cols$timestamp)) {
-    output_df <- cbind(timestamp = preserved_cols$timestamp, output_df)
+    output_df <- cbind(date = preserved_cols$timestamp, output_df)
+    # Note: using "date" as column name to match the PCA output format
   }
   
   # Add close price if it exists
@@ -341,7 +344,20 @@ save_preprocessed_data <- function(processed_data, preserved_cols, file_path, su
     
     if (!is.null(preserved_cols)) {
       preserved_count <- sum(!sapply(preserved_cols, is.null))
-      cat("Includes", preserved_count, "preserved columns (timestamp, close, direction, split)\n")
+      
+      # Report on specific columns
+      if (!is.null(preserved_cols$timestamp)) {
+        cat("Added timestamp column (renamed to 'date')\n")
+      }
+      if (!is.null(preserved_cols$close)) {
+        cat("Added close price column\n")
+      }
+      if (!is.null(preserved_cols$direction)) {
+        cat("Added price direction column\n")
+      }
+      if (!is.null(preserved_cols$split)) {
+        cat("Added train/validation/test split information\n")
+      }
       
       # Print split information if available
       if (!is.null(preserved_cols$split)) {
@@ -846,6 +862,12 @@ results <- run_pca_analysis(
    test_ratio = 0.05
  )
 
+results <- run_pca_analysis(
+  file_path = file_path,
+  fixed_val_start = 3551,    # Validation starts at row 3552,
+  val_size = 282             # Validation set is 282 rows
+)
+
 # Example 2: Run the analysis with fixed position split
 #results <- run_pca_analysis(
 #  file_path = file_path,
@@ -866,11 +888,9 @@ results <- run_pca_analysis(
 #)
 
 
-# btcusd_pca_components_lightboost_12h_4h_reduced_60_7_5_1_2_1_old.csv
-
 # Export dataset with specified number of components
-#export_pca_components(results, n_components = 65, 
-#                      output_file = "pca_components_btcusdt_65_reattempt_12h.csv") 
+export_pca_components(results, n_components = 45, 
+                      output_file = "pca_components_btcusdt_12h_45_reduced_lance_seed_april_15.csv") 
 
 cat("\n\nPCA analysis with flexible splitting options complete.\n")
 
