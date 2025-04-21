@@ -163,7 +163,8 @@ def calculate_indicators(directory_name, symbols, intervals):
             # Load the data file
             # filename = data_dir / f"{symbol.lower()}_{interval}_historical_reduced.csv"
             # filename = data_dir / f"{symbol.lower()}_{interval}_ohlcv_reduced_march_17.csv"
-            filename = data_dir / f"{symbol.lower()}_{interval}_ohlcv_reduced_april_15.csv"
+            # filename = data_dir / f"{symbol.lower()}_{interval}_ohlcv_reduced_april_15.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_ohlcv.csv"
 
             print(f"calculate_indicators: loading historical dataset from: {filename}")
             df = pd.read_csv(filename)
@@ -293,7 +294,8 @@ def calculate_indicators(directory_name, symbols, intervals):
             print(f"Column count horizon aligned: {len(df.columns)}")
             # Save to CSV
             # filename = data_dir / f"{symbol.lower()}_{interval}_reduced_python_processed_1_2_1_march_17.csv"
-            filename = data_dir / f"{symbol.lower()}_{interval}_reduced_python_processed_1_2_1_april_15.csv"
+            # filename = data_dir / f"{symbol.lower()}_{interval}_reduced_python_processed_1_2_1_april_15.csv"
+            filename = data_dir / f"{symbol.lower()}_{interval}_python_processed_1_2_1_april_15.csv"
             df.to_csv(filename, index=False)
             print(f"Processed file stored at {filename}")
 
