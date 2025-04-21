@@ -29,11 +29,12 @@ library(stats)
 #file_path <- "/Users/bendiksen/Desktop/iTransformer/dataset/logits/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt.csv"
 #file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_python_processed_reduced.csv"
 #file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_historical_reduced_python_processed_1_2_1_old_reattempt_2.csv"
-#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_reduced_python_processed_1_2_1_march_17.csv"
 #file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_reduced_python_processed_1_2_1_april_15.csv"
 #file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_reduced_python_processed_1_2_1_april_15_baseline_set_sizes.csv"
 #file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_reduced_python_processed_1_2_1_april_15.csv"
-file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_python_processed_1_2_1_april_15.csv"
+#file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_python_processed_1_2_1_april_15.csv"
+
+file_path <- "/Users/bendiksen/Desktop/inverted_transformers_ensemble/binance_futures_historical_data/btcusdt_12h_reduced_python_processed_1_2_1_march_17_tmp.csv"
 #===============================================================================
 # Data Loading and Preprocessing Functions
 #===============================================================================
@@ -874,8 +875,8 @@ results <- run_pca_analysis(
 
 
 # Export dataset with specified number of components
-export_pca_components(results, n_components = 46, 
-                      output_file = "pca_components_btcusdt_12h_46_07_05_lance_seed_april_15.csv") 
+#export_pca_components(results, n_components = 46, 
+#                      output_file = "pca_components_btcusdt_12h_46_07_05_lance_seed_april_15.csv") 
 
 cat("\n\nPCA analysis with flexible splitting options complete.\n")
 
